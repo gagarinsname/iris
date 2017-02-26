@@ -6,6 +6,7 @@
 #include <conio.h>
 #include <time.h>
 #include "header.h"
+#include "IrisSegmentation.h"
 #include "errorcodes.h"
 #include "ipl.h"
 #include "unitypes.h"
@@ -16,11 +17,11 @@
 //#include "bdl.h"
 //#include "dbg.h"
 
-unsigned char palitra[256][4];
 
-int main(int argc, char** argv) 
+int ömain(int argc, char** argv) 
 {
 	clock_t time;
+	/*
 	unsigned char *imgInput, *imgOutput;
 	char *imgName, *imgOut, *name, *cname;
 	char tmp[MAX_FILENAME];
@@ -30,8 +31,8 @@ int main(int argc, char** argv)
 	CErr err;
 	
 	FILE *in = fopen("../params_res.txt", "r");
-	FILE *log = fopen("../data/res/0629/log.txt", "wb");
-	FILE *plot = fopen("../data/res/0629/errors.txt", "wb");
+	FILE *log = fopen("../data/res/0224/log.txt", "wb");
+	FILE *plot = fopen("../data/res/0224/errors.txt", "wb");
 	FILE *imgFile;
 	double sum = 0.0, abs_err=.0, abs_errC = .0, rel_err = .0, rel_errC = .0;
 	
@@ -64,7 +65,7 @@ int main(int argc, char** argv)
 	//340 338 207 549
 	//Errors:
 	//97 135 287 529 534 570 620 929 1716 489
-	for(i = 0; i < 2167; i++)
+	for(i = 0; i < 0; i++)
 		fgets(tmp,MAX_FILENAME,in);
 	
 	nref = 0;
@@ -75,7 +76,7 @@ int main(int argc, char** argv)
 		imgName = (char*)malloc(MAX_FILENAME);
 		strcpy(imgName,"../data/");
 		imgOut = (char*)malloc(MAX_FILENAME);
-		strcpy(imgOut,"../data/res/0629/");
+		strcpy(imgOut,"../data/res/0224/");
 		
 		//Read the expert markup data
 		if((res = getExpertMarkup(in,&pup,&iri,imgName,imgOut))!=0)
@@ -89,6 +90,7 @@ int main(int argc, char** argv)
 		//Open an image file
 		printf("%s\n", imgName);
 		//fprintf(log, "%s\n", imgName);
+		
 		imgFile = fopen(imgName,"rb");
 		if (imgFile == NULL){
 			printf("Error: Cannot open the image file.\n");
@@ -114,14 +116,25 @@ int main(int argc, char** argv)
 		time = clock();
 		
 		//Iris segmentation function
+		SSegmentationResult* Result = NULL;
+		if ((res = IS_Initialize(Result)) != 0)
+			printf("Error: iris segmentation init failed.");
+
 		angle = 120;
 		flags = BDL_PGRAD_CALCRADIUS|BDL_PUPREF_SAVECROP|BDL_PUPREF_SAVEPOLAR|BDL_PUPREF_SAVECROP;
-		if ((res = ibd_IrisSegmentation(&CI,&CP,&rCP, name, imgInput,imgOutput,H,W, angle, log, flags)) != 0)
-			printf("Error: Iris segmentation fail.\n");
-		else
+		if ((res = IrisSegmentation(Result, imgInput, H, W, angle, flags)) != 0)
 		{
-			time = clock() - time;
+			printf("Error: Iris segmentation fail.\n");
+			return -1;
 		}
+		time = clock() - time;
+		//getStatistics(SSegmentationResult* Result);
+		if ((res = IS_Deinitialize(Result)) != 0)
+		{
+			printf("Error: Iris segmentation deinit failed.");
+			return -1;
+		}
+
 		//Axis convertation ???
 		CI.yc = H - CI.yc;
 		CP.yc = H - CP.yc;
@@ -225,6 +238,7 @@ int main(int argc, char** argv)
 	fclose(plot);
 	fclose(log);
 	//fclose(out);
+	*/
 	return 0;
 }
 

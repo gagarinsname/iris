@@ -5,6 +5,7 @@
 #include "header.h"
 #include "imio.h"
 #include "ipl.h"
+#include "IrisSegmentation.h"
 
 #define Cder 2
 #define MAXCOST 214748364
@@ -430,10 +431,11 @@ int IBD_RefinePupil(int *xpList,int *ypList, int* radmean, CInfo *CP, int MinRad
 	}
 	//fclose(fout);
 	
-
+	/*
 	if (flags&BDL_PUPREF_SAVECROP)
 		SaveBmp8(name, "_cropcanny.bmp", Wc, Hc, imgEdge, 4);
-	
+	*/
+
 	Wseg = 360;
 	Hseg = MaxRad - MinRad + 1;
 	radList = (int*)malloc((Wseg+1) * sizeof(int));
@@ -452,10 +454,10 @@ int IBD_RefinePupil(int *xpList,int *ypList, int* radmean, CInfo *CP, int MinRad
 
 		}
 	}	
-
+	/*
 	if (flags&BDL_PUPREF_SAVEPOLAR)
 		SaveBmp8(name, "_polar_refinemap.bmp", Wseg, Hseg, imgPolar, 4);
-
+	*/
 	for (rad = 0; rad < Hseg; rad++)
 	{
 		for (angle = 0; angle < Wseg; angle++)

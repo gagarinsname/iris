@@ -29,8 +29,9 @@ typedef struct
 
 //EXTERNC int ibd_grapar(CInfo* CI, char* name, const unsigned char* img, int H, int W, int dPhi, SBoundPnt* pnBoundary, CInfo* CP, int flags);
 
-EXTERNC int ibd_IrisSegmentation(CInfo* CI,CInfo* CP,CInfo *rCP, char* name, unsigned char* imgInput,  unsigned char *imgOutput, int H, int W, int angle, FILE* log, int flags);
+//EXTERNC int ibd_IrisSegmentation(CInfo* CI,CInfo* CP,CInfo *rCP, char* name, unsigned char* imgInput,  unsigned char *imgOutput, int H, int W, int angle, FILE* log, int flags);
 
+/*
 int FLT_Sobel3x3(int* dest,//destination image
 				 unsigned char* imgSobel,//gradient magnitude image
 				 const unsigned char *img,//original image
@@ -41,11 +42,11 @@ int FLT_Sobel3x3(int* dest,//destination image
 				 int* imdx,	//gradient values in x direction
 				 int* imdy,	//gradient values in y direction
 				 int flags);
+*/
+//EXTERNC int FLT_Sobel10x10(int* dest,unsigned char* imgSobel, const unsigned char *img, char *name, int H, int W, int* imdx, int* imdy, int flags);
+//EXTERNC int ibd_graparBothBorders(CInfo* CI, CInfo* CP, char* name, const unsigned char* img, unsigned char *imgBl, int H, int W, int dPhi, int flags);
 
-EXTERNC int FLT_Sobel10x10(int* dest,unsigned char* imgSobel, const unsigned char *img, char *name, int H, int W, int* imdx, int* imdy, int flags);
-EXTERNC int ibd_graparBothBorders(CInfo* CI, CInfo* CP, char* name, const unsigned char* img, unsigned char *imgBl, int H, int W, int dPhi, int flags);
-
-EXTERNC int IBD_RefinePupil(int* xpList, int *ypList, int* radmean, CInfo* CP, int MinRad, int MaxRad, char *name, const unsigned char* img, int H, int W, int flags);
-EXTERNC int IBD_RefineIris(CInfo *CP, CInfo *CI, const unsigned char *img, char* name, int H, int W, int flags);
+//EXTERNC int IBD_RefinePupil(int* xpList, int *ypList, int* radmean, CInfo* CP, int MinRad, int MaxRad, char *name, const unsigned char* img, int H, int W, int flags);
+//EXTERNC int IBD_RefineIris(CInfo *CP, CInfo *CI, const unsigned char *img, char* name, int H, int W, int flags);
 
 

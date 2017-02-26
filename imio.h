@@ -1,8 +1,10 @@
 #include <windows.h>
 #include <conio.h>
+#include "unitypes.h"
+#include "Geometry.h"
 #define MAX_FILENAME 256
 
-typedef struct
+typedef struct CErr
 {
 	double sum, ctr, pup, iri;
 } CErr;
@@ -22,10 +24,8 @@ EXTERNC void DRAW_CircleInGray(
   unsigned char* im,      // image
   int W,       // image size
   int H,       // image size
-  int xc,       // circle center
-  int yc,       // circle center
-  int r,        // circle radius
-  unsigned char color);    // color
+  SCircleData* sCircle, // circle structure
+  uint8 color);    // color
 
 EXTERNC void DRAW_SequenceInGray(
 	unsigned char* im,		// image

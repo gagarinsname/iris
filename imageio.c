@@ -179,6 +179,7 @@ int SaveBmp8 (char *fname, char* label, int Width,int Height, unsigned char* map
 	if ((res = CreateBmp8(cname, Width, Height, map, color)) != 0)
 		printf("Error: Can not create .bmp file %s.\n", cname);
 	free(cname);
+	return res;
 }
 
  
@@ -244,56 +245,57 @@ void DRAW_Line(int* mat,int H, int W, int x1, int y1, int x2, int y2)
 }
 
 // draw the circle of given color in grayscale image
-void DRAW_CircleInGray(unsigned char* im, int W, int H, int xc, int yc, int r, unsigned char color)
+void DRAW_CircleInGray(uint8* im, int W, int H, SCircleData* sCircle, uint8 color)
 {
-	double step,phi,t;
-	int x,y;
-	for (x = xc-5; x < xc+5; x++)
+	double step, phi, t;
+	int x, y;
+	for (x = sCircle->xc - 5; x < sCircle->xc + 5; x++)
 	{
-		if ((x>=0)&&(yc>=0)&&(x<W)&&(yc<H))
-			im[yc*W+x] = color;
-		if ((x>=0)&&(yc+1>=0)&&(x<W)&&(yc+1<H))
-			im[(yc+1)*W+x] = color;
-		if ((x>=0)&&(yc-1>=0)&&(x<W)&&(yc-1<H))
-			im[(yc-1)*W+x] = color;
+		if ((x >= 0) && (sCircle->yc >= 0) && (x < W) && (sCircle->yc < H))
+			im[sCircle->yc * W + x] = color;
+		if ((x >= 0) && (sCircle->yc + 1 >= 0) && (x < W) && (sCircle->yc + 1 < H))
+			im[(sCircle->yc + 1) * W + x] = color;
+		if ((x >= 0) && (sCircle->yc - 1 >= 0) && (x < W) && (sCircle->yc - 1 < H))
+			im[(sCircle->yc - 1) * W + x] = color;
 	}
-	for (y = yc-5; y < yc+5; y++)
+	for (y = sCircle->yc-5; y < sCircle->yc+5; y++)
 	{
-		if ((xc>=0)&&(y>=0)&&(xc<W)&&(y<H))
-			im[y*W+xc] = color;
-		if ((xc+1>=0)&&(y>=0)&&(xc+1<W)&&(y<H))
-			im[y*W+xc+1] = color;
-		if ((xc-1>=0)&&(y>=0)&&(xc-1<W)&&(y<H))
-			im[y*W+xc-1] = color;
+		if ((sCircle->xc>=0)&&(y>=0)&&(sCircle->xc<W)&&(y<H))
+			im[y * W + sCircle->xc] = color;
+		if ((sCircle->xc + 1 >= 0) && (y >= 0) && (sCircle->xc + 1 < W) && (y < H))
+			im[y * W + sCircle->xc + 1] = color;
+		if ((sCircle->xc - 1 >= 0) && (y >= 0) && (sCircle->xc - 1 < W) && (y < H))
+			im[y * W + sCircle->xc - 1] = color;
 	}
-    step = PI/(4*r);
-    for (phi=0.;phi<2*PI;phi+=step)
+    step = PI / (4 * sCircle->r);
+    for (phi = 0.; phi < 2*PI; phi += step)
     {
-      t = cos(phi)*r;
+      t = cos(phi)*sCircle->r;
       if (t>0.)
-        x = xc+(int)(t+.5);
+        x = sCircle->xc + (int)(t + .5);
       else
-        x = xc+(int)(t-.5);
-      t = sin(phi)*r;
-      if (t>0.)
-        y = yc+(int)(t+.5);
+        x = sCircle->xc + (int)(t - .5);
+      t = sin(phi) * sCircle->r;
+      if (t > 0.)
+        y = sCircle->yc + (int)(t + .5);
       else
-        y = yc+(int)(t-.5);
-      if ((x>=0)&&(y>=0)&&(x<W)&&(y<H))
-        im[y*W+x] = color;
+        y = sCircle->yc + (int)(t - .5);
+      if ((x >= 0) && (y >= 0) && (x < W) && (y < H))
+        im[y * W + x] = color;
     }
 }
 
-
-void DRAW_SequenceInGray(unsigned char* im, int W, int H, int* xP, int* yP, int N, unsigned char color)
+/*
+void DRAW_2DSequenceInGray(unsigned char* im, int W, int H, sPoint* sSeq, int N, unsigned char color)
 {
 	int i;
     for (i=0;i < N; i++)
     {
-      if ((xP[i]>=0)&&(yP[i]>=0)&&(xP[i]<W)&&(yP[i]<H))
-        im[yP[i]*W+xP[i]] = color;
+      if ((sSeq[i].x>=0) && (sSeq[i].y >= 0) && (sSeq[i].x < W) && (sSeq[i].y < H))
+        im[sSeq[i].y * W + sSeq[i].x] = color;
     }
 }
+*/
 
 void Dilate3x3Cross(unsigned char* dst, const unsigned char* src, int W, int H)
 {

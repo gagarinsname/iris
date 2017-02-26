@@ -14,6 +14,7 @@ static int sort_int(const void* e1, const void* e2)
 
 int IBD_RefineIris(CInfo *CP, CInfo *CI, const unsigned char *img, char* name, int H, int W, int flags)
 {
+	/*
 	FILE* rh = fopen("radhist.txt", "wb");
 	long res, x,y,xc, yc, gx, gy, val, px, py, rmax, rsize;
 	double scalar, rI, rval, ang;
@@ -71,7 +72,8 @@ int IBD_RefineIris(CInfo *CP, CInfo *CI, const unsigned char *img, char* name, i
 			}
 		}
 		SaveBmp8(name,"_bigsobel.bmp", W, H, imgSobel, 4);
-		/*rval = 0.0;
+		
+		rval = 0.0;
 		rmax = CI->r;
 		for (x = 1; x < rsize; x++) radHist[x] = radHist[x]/x;
 		IPL_HIST_Blur_double(radHistSmooth, (const double*) radHist, rsize, 5);
@@ -87,7 +89,7 @@ int IBD_RefineIris(CInfo *CP, CInfo *CI, const unsigned char *img, char* name, i
 			fprintf(rh, "%1.2f ", radHistSmooth[x]);
 		}
 		printf("iris radius: %d\n", rmax);
-		//CI->r = rmax;*/
+		//CI->r = rmax;
 	}
 	else
 		return -1;
@@ -99,5 +101,6 @@ int IBD_RefineIris(CInfo *CP, CInfo *CI, const unsigned char *img, char* name, i
 	free(radHist);
 	free(radHistSmooth);
 	fclose(rh);
+	*/
 	return 0;
 }
