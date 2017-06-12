@@ -2,7 +2,7 @@
 /*                                                                       */
 /*      Created:  25 Feb 2017                                            */
 /*      Modified: many times                                             */
-/*      Purpose:  2D Geometry data processing							 */
+/*      Purpose:  2D data processing							         */
 /*      Authors:                                                         */
 /*        Yuriy Efimov                                                   */
 /*                                                                       */

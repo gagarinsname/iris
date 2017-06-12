@@ -51,6 +51,11 @@ typedef struct SSegmentationResult
 	uint8* NormalizedIris;
 } SSegmentationResult;
 
+typedef struct SEdgeDetectorParams
+{
+	double tHigh, tLow, tSigma;
+};
+
 
 EXTERNC int IS_Initialize(SSegmentationResult *sResult);
 EXTERNC int IrisSegmentation(SSegmentationResult* Result, //Segmentation result

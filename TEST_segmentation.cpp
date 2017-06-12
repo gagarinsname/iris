@@ -10,6 +10,7 @@
 #include "ipl.h"
 #include "unitypes.h"
 #include "imio.h"
+#include "imPlot.h"
 #include "IrisSegmentation.h"
 #include "bdl.h"
 
@@ -22,7 +23,7 @@
 
 unsigned char palitra[256][4];
 
-int main(int argc, char** argv)
+int test_segm(int argc, char** argv)
 {
 	clock_t time;
 	unsigned char *imgInput, *imgOutput;
@@ -59,6 +60,7 @@ int main(int argc, char** argv)
 	}
 	imgOutput = (uint8*)malloc(H*W * sizeof(uint8));
 	memcpy(imgOutput, imgInput, H*W * sizeof(uint8));
+	
 	//Reduce the file extension
 	memcpy(name, imgOut, strlen(imgOut) - 4);
 	name[strlen(imgOut) - 4] = 0;

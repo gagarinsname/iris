@@ -7,7 +7,6 @@
 #include "header.h"
 #include "imio.h"
 #include "stddefs.h"
-#define roundf(x) floor(x + 0.5f)
 
 
 int readBmp8(FILE* imgFile, unsigned char** img,int* H, int* W)
@@ -37,15 +36,16 @@ int readBmp8(FILE* imgFile, unsigned char** img,int* H, int* W)
 
 	fseek(imgFile, bfh.bfOffBits, SEEK_SET);
 
-	*img = (unsigned char*)malloc(*H * *W * sizeof(unsigned char));
+	*img = (unsigned char*)malloc(*H * *W * sizeof(uint8));
 	
-	for(i = 0; i < *H; i++)
-		for (j = 0; j < *W; j++)
+	for(i = 0; i < *H; ++i)
+		for (j = 0; j < *W; ++j)
 		{
 			unsigned char tmp;
 			fread(&tmp, 1, 1, imgFile);
-			(*img)[i * *W + j]=(unsigned int)tmp;
+			(*img)[i * *W + j]=(uint8)tmp;
 		}
+
 	return 0;
 }
 
@@ -122,7 +122,6 @@ int CreateBmp8 (char *fname, int Width,int Height, unsigned char* map, BYTE colo
 	BITMAPINFOHEADER bih;
 	RGBQUAD Palette [256];// Палитра
 
-
 	// Заполним их
 	memset (&bfh, 0, sizeof(bfh));
 	bfh.bfType = 0x4D42;									// Обозначим, что это bmp 'BM'
@@ -149,16 +148,16 @@ int CreateBmp8 (char *fname, int Width,int Height, unsigned char* map, BYTE colo
 
 	// Создадим и запишем палитру
 	memset (&Palette[0], 0, sizeof (RGBQUAD));
-	for (i = 1; i < 256; i++)
+	for (i = 1; i < 256; ++i)
 	{
 		Palette[i].rgbBlue = Palette[i-1].rgbBlue + 1;
 		Palette[i].rgbGreen = Palette[i-1].rgbGreen + 1;
 		Palette[i].rgbRed = Palette[i-1].rgbRed + 1;
 	}
 	WriteFile (hFile, Palette, 256 * sizeof (RGBQUAD), &RW, NULL);
-	for (i = 0; i < Height; i++)
+	for (i = 0; i < Height; ++i)
 	{
-		for (j = 0; j < Width; j++)
+		for (j = 0; j < Width; ++j)
 		{
 			WriteFile (hFile, &map[i * Width + j], sizeof(color), &RW, NULL);
 		}
@@ -169,133 +168,32 @@ int CreateBmp8 (char *fname, int Width,int Height, unsigned char* map, BYTE colo
 	return 0;
 }
 
-int SaveBmp8 (char *fname, char* label, int Width,int Height, unsigned char* map, BYTE color)
+int SaveBmp8 (char *fname, char* label, int Width, int Height, unsigned char* map, BYTE color)
 {
 	int res = 0;
 	char* cname;
-	cname = (char*)malloc(256 * sizeof(char));
-	strcpy(cname, fname);
+	char* ext;
+	cname = (char*)malloc(MAX_FILENAME * sizeof(char));
+	ext = (char*)malloc(MAX_FILENAME * sizeof(char));
+	strcpy(ext, fname + strlen(fname) - 4);
+	memcpy(cname, fname, strlen(fname) - 4);
+	cname[strlen(fname) - 4] = 0;
+	 
 	strcat(cname, label);
+	strcat(cname, ext);
+
 	if ((res = CreateBmp8(cname, Width, Height, map, color)) != 0)
-		printf("Error: Can not create .bmp file %s.\n", cname);
+	{
+		fprintf(stderr, "[ERROR]: SaveBmp8() can not create .bmp file %s.\n", cname);
+		return -1;
+	}
+
 	free(cname);
+	free(ext);
 	return res;
 }
 
- 
-void DRAW_Line(int* mat,int H, int W, int x1, int y1, int x2, int y2)
-{
-	//Костыль
-	int dx,dy,lengthX,lengthY,length;
-    dx = (x2 - x1 >= 0 ? 1 : -1);
-    dy = (y2 - y1 >= 0 ? 1 : -1); 
-    lengthX = abs(x2 - x1);
-    lengthY = abs(y2 - y1);
-	length = max(lengthX, lengthY);
- 
-	  if (x1 < 0 || x2 < 0 || y1 < 0 || y2 < 0 || x1 > W || x2 > W || y1 > H | y2 > H)
-		return;
 
-
-      if (length == 0)
-      {
-            mat[y1 * W + x1]++;
-      }
- 
-      if (lengthY <= lengthX)
-      {
-            // Начальные значения
-            int x = x1;
-            int y = y1;
-            int d = -lengthX;
- 
-            // Основной цикл
-            length++;
-            while(length--)
-            {
-				  mat[y * W + x]++;
-                  x += dx;
-                  d += 2 * lengthY;
-                  if (d > 0) {
-                        d -= 2 * lengthX;
-                        y += dy;
-                  }
-            }
-      }
-      else
-      {
-            // Начальные значения
-            int x = x1;
-            int y = y1;
-            int d = - lengthY;
- 
-            // Основной цикл
-            length++;
-            while(length--)
-            {
-                  mat[y* W + x]++;
-                  y += dy;
-                  d += 2 * lengthX;
-                  if (d > 0) {
-                        d -= 2 * lengthY;
-                        x += dx;
-                  }
-            }
-      }
-}
-
-// draw the circle of given color in grayscale image
-void DRAW_CircleInGray(uint8* im, int W, int H, SCircleData* sCircle, uint8 color)
-{
-	double step, phi, t;
-	int x, y;
-	for (x = sCircle->xc - 5; x < sCircle->xc + 5; x++)
-	{
-		if ((x >= 0) && (sCircle->yc >= 0) && (x < W) && (sCircle->yc < H))
-			im[sCircle->yc * W + x] = color;
-		if ((x >= 0) && (sCircle->yc + 1 >= 0) && (x < W) && (sCircle->yc + 1 < H))
-			im[(sCircle->yc + 1) * W + x] = color;
-		if ((x >= 0) && (sCircle->yc - 1 >= 0) && (x < W) && (sCircle->yc - 1 < H))
-			im[(sCircle->yc - 1) * W + x] = color;
-	}
-	for (y = sCircle->yc-5; y < sCircle->yc+5; y++)
-	{
-		if ((sCircle->xc>=0)&&(y>=0)&&(sCircle->xc<W)&&(y<H))
-			im[y * W + sCircle->xc] = color;
-		if ((sCircle->xc + 1 >= 0) && (y >= 0) && (sCircle->xc + 1 < W) && (y < H))
-			im[y * W + sCircle->xc + 1] = color;
-		if ((sCircle->xc - 1 >= 0) && (y >= 0) && (sCircle->xc - 1 < W) && (y < H))
-			im[y * W + sCircle->xc - 1] = color;
-	}
-    step = PI / (4 * sCircle->r);
-    for (phi = 0.; phi < 2*PI; phi += step)
-    {
-      t = cos(phi)*sCircle->r;
-      if (t>0.)
-        x = sCircle->xc + (int)(t + .5);
-      else
-        x = sCircle->xc + (int)(t - .5);
-      t = sin(phi) * sCircle->r;
-      if (t > 0.)
-        y = sCircle->yc + (int)(t + .5);
-      else
-        y = sCircle->yc + (int)(t - .5);
-      if ((x >= 0) && (y >= 0) && (x < W) && (y < H))
-        im[y * W + x] = color;
-    }
-}
-
-/*
-void DRAW_2DSequenceInGray(unsigned char* im, int W, int H, sPoint* sSeq, int N, unsigned char color)
-{
-	int i;
-    for (i=0;i < N; i++)
-    {
-      if ((sSeq[i].x>=0) && (sSeq[i].y >= 0) && (sSeq[i].x < W) && (sSeq[i].y < H))
-        im[sSeq[i].y * W + sSeq[i].x] = color;
-    }
-}
-*/
 
 void Dilate3x3Cross(unsigned char* dst, const unsigned char* src, int W, int H)
 {
