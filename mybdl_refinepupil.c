@@ -27,11 +27,11 @@ static int sort_PC(const void* e1, const void* e2)
 }
 
 
-int CircBypass(int start, unsigned char* priceMap, int* radPath, int pathCost, int H, int W)
+/*int CircBypass(int start, unsigned char* priceMap, int* radPath, int pathCost, int H, int W)
 {
 	//FILE *fout = fopen("../data/res/0612/EnhancementMaps.txt","w+");
 	SPathCand* PC;
-	int i,j,n, sPnt, costUpd, c1, c2, c3, res, maxprice, nC, optRoot, optRad, optCost;
+	int i,n, sPnt, costUpd, c1, c2, c3, res, maxprice, nC, optRoot, optRad, optCost;
 	int *rootMap, *costMap, *parMap;
 	rootMap = (int*)malloc(H*W*sizeof(int));
 	costMap = (int*)malloc(H*W*sizeof(int));
@@ -190,36 +190,6 @@ int CircBypass(int start, unsigned char* priceMap, int* radPath, int pathCost, i
 		}
 	}
 
-//  Debug information
-	/*
-	for (i = 0; i < H; i++)
-	{
-		for(j = 0; j < W; j++)
-			fprintf(fout, "%3u ", priceMap[i * W + j]);
-		fprintf(fout, "\n");
-	}
-	fprintf(fout, "\n");
-	for (i = 0; i < H; i++)
-	{
-		for(j = 0; j < W; j++)
-			fprintf(fout, "%3d ", costMap[i * W + j]);
-		fprintf(fout, "\n");
-	}
-	fprintf(fout, "\n");
-	for (i = 0; i < H; i++)
-	{
-		for(j = 0; j < W; j++)
-			fprintf(fout, "%3d ", rootMap[i * W + j]);
-		fprintf(fout, "\n");
-	}
-	fprintf(fout, "\n");
-	for (i = 0; i < H; i++)
-	{
-		for(j = 0; j < W; j++)
-			fprintf(fout, "%3d ", parMap[i * W + j]);
-		fprintf(fout, "\n");
-	}
-	fclose(fout);*/
 
 	if (nC == 0)
 		optCost = -1;
@@ -249,7 +219,7 @@ int CircBypass(int start, unsigned char* priceMap, int* radPath, int pathCost, i
 int pupilCircSP(int* radPath, unsigned char *Map, int H, int W, int pRad)
 {
 	int res;
-	int r, phi, i,j, cC, tmp, argmin, min = H*W;
+	int r, i,j, cC, tmp, argmin, min = H*W;
 	unsigned char t;
 	int *cand;
 	SCirCand *CSPath;
@@ -331,13 +301,11 @@ int pupilCircSP(int* radPath, unsigned char *Map, int H, int W, int pRad)
 
 int IBD_RefinePupil(int *xpList,int *ypList, int* radmean, CInfo *CP, int MinRad, int MaxRad, char *name, const unsigned char* img, int H, int W, int flags)
 {
-	char *cname;
-	unsigned char *imgEdge, *imgPolar, *imgPolarBl, *imgCrop, *imgGrad;
+	unsigned char *imgEdge, *imgCrop, *imgGrad;
 	void *canny_buf = NULL;
 	int Wseg, Hseg, i, rad, angle, xbeg,ybeg,xend,yend, Hc, Wc, x, y, xc,yc, med, canny_sz,res;
 	int gx,gy, ax,ay, *radList, max;
 	int *dest, *imdx, *imdy;
-	int mask[9] = {3,10,3,0,0,0,-3,-10,-3};
 	double t, tlow, thigh, sigma, val;
 	int16 *pgx_calc,*pgy_calc;
 	//FILE *fout = fopen("../data/res/edgeMapVals.txt", "w");
@@ -430,11 +398,6 @@ int IBD_RefinePupil(int *xpList,int *ypList, int* radmean, CInfo *CP, int MinRad
 		//fprintf(fout, "\n");
 	}
 	//fclose(fout);
-	
-	/*
-	if (flags&BDL_PUPREF_SAVECROP)
-		SaveBmp8(name, "_cropcanny.bmp", Wc, Hc, imgEdge, 4);
-	*/
 
 	Wseg = 360;
 	Hseg = MaxRad - MinRad + 1;
@@ -454,10 +417,6 @@ int IBD_RefinePupil(int *xpList,int *ypList, int* radmean, CInfo *CP, int MinRad
 
 		}
 	}	
-	/*
-	if (flags&BDL_PUPREF_SAVEPOLAR)
-		SaveBmp8(name, "_polar_refinemap.bmp", Wseg, Hseg, imgPolar, 4);
-	*/
 	for (rad = 0; rad < Hseg; rad++)
 	{
 		for (angle = 0; angle < Wseg; angle++)
@@ -487,7 +446,6 @@ int IBD_RefinePupil(int *xpList,int *ypList, int* radmean, CInfo *CP, int MinRad
 	*radmean /= Wseg;
 
 	free(radList);
-	free(imgPolar);
 	free(canny_buf);
 	free(imgCrop);
 	free(imgGrad);
@@ -496,4 +454,4 @@ int IBD_RefinePupil(int *xpList,int *ypList, int* radmean, CInfo *CP, int MinRad
 	free(imdx);
 	free(imdy);
 	return 0;
-}
+}*/

@@ -13,6 +13,11 @@ typedef struct CErr
 typedef struct SError
 {
 	double total, iris, pupil, pCenter, iCenter;
+	int hSum[100] = { 0 };
+	int hcP[100] = { 0 };
+	int hP[100] = { 0 };
+	int hcI[100] = { 0 };
+	int hI[100] = { 0 };
 };
 
 typedef struct SMarkup
@@ -24,5 +29,3 @@ typedef struct SMarkup
 
 EXTERNC int getExpertMarkup(FILE* fin, CInfo* pup, CInfo* iri, char* name, char* out);
 EXTERNC int calcError(CErr* err, CInfo* myPup, CInfo* myIri, CInfo* pup, CInfo* iri);
-
-

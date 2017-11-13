@@ -20,7 +20,7 @@ typedef struct sPoint
 
 typedef struct SCircleData
 {
-	int16 xc;   // X coordinate
-	int16 yc;   // Y coordinate
-	int16 r;    // radius (elliptic big axis)
+	int32 xc;   // X coordinate
+	int32 yc;   // Y coordinate
+	int32 r;    // radius (elliptic big axis)
 } SCircleData;

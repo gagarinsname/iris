@@ -36,9 +36,9 @@ int readBmp8(FILE* imgFile, unsigned char** img,int* H, int* W)
 
 	fseek(imgFile, bfh.bfOffBits, SEEK_SET);
 
-	*img = (unsigned char*)malloc(*H * *W * sizeof(uint8));
+	*img = (uint8*)malloc(*H * *W * sizeof(uint8));
 	
-	for(i = 0; i < *H; ++i)
+	for(i = *H-1; i > -1; --i)
 		for (j = 0; j < *W; ++j)
 		{
 			unsigned char tmp;
@@ -155,7 +155,7 @@ int CreateBmp8 (char *fname, int Width,int Height, unsigned char* map, BYTE colo
 		Palette[i].rgbRed = Palette[i-1].rgbRed + 1;
 	}
 	WriteFile (hFile, Palette, 256 * sizeof (RGBQUAD), &RW, NULL);
-	for (i = 0; i < Height; ++i)
+	for (i = Height-1; i > -1; --i)
 	{
 		for (j = 0; j < Width; ++j)
 		{
@@ -202,12 +202,12 @@ void Dilate3x3Cross(unsigned char* dst, const unsigned char* src, int W, int H)
   // upper boundary
   memset(dst,0,W);
   // body
-  for (i=1;i<H-1;i++)
+  for (i=1;i<H-1;++i)
   {
     // left
     dst[i*W] = 0;
     // body
-    for (j=1;j<W-1;j++)
+    for (j=1;j<W-1;++j)
     {
       m =  src[(i-1)*W+(j  )];
 

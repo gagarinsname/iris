@@ -115,8 +115,7 @@ void DRAW_CircleInGray(
 
 void DRAW_2DSequenceInGray(uint8* im, int W, int H, sPoint* sSeq, int N, uint8 color)
 {
-	int i;
-	for (i = 0; i < N; ++i)
+	for (int i = 0; i < N; ++i)
 	{
 		if ((sSeq[i].x >= 0) && (sSeq[i].y >= 0) && (sSeq[i].x < W) && (sSeq[i].y < H))
 			im[sSeq[i].y * W + sSeq[i].x] = color;

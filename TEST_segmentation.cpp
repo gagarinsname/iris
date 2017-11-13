@@ -69,7 +69,7 @@ int test_segm(int argc, char** argv)
 
 	//Iris segmentation function
 	SSegmentationResult Result;// = (SSegmentationResult*)malloc(sizeof(SSegmentationResult));
-	if ((res = IS_Initialize(&Result)) != 0) {
+	if ((res = IS_Initialize(&Result, "blah")) != 0) {
 		printf("\nError: iris segmentation init failed.");
 		return -1;
 	}
