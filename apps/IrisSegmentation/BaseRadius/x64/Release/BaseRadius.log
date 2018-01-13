@@ -1,0 +1,9 @@
+﻿  BaseRadii.cpp
+BaseRadii.cpp(23): warning C4101: 'res': unreferenced local variable
+  Generating code
+  3 of 102 functions ( 2.9%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    1 functions had inline decision re-evaluated but remain unchanged
+  Finished generating code
+  BaseRadius.vcxproj -> D:\code\IrisRepository\x64\Release\BaseRadius.exe
+  BaseRadius.vcxproj -> D:\code\IrisRepository\x64\Release\BaseRadius.pdb (Full PDB)

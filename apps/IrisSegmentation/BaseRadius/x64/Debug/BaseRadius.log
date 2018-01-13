@@ -1,0 +1,4 @@
+﻿  BaseRadii.cpp
+d:\code\irisrepository\baseradius\baseradii.cpp(23): warning C4101: 'res': unreferenced local variable
+  BaseRadius.vcxproj -> D:\code\IrisRepository\x64\Debug\BaseRadius.exe
+  BaseRadius.vcxproj -> D:\code\IrisRepository\x64\Debug\BaseRadius.pdb (Partial PDB)

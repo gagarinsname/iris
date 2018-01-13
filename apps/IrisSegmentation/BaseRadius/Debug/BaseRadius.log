@@ -1,0 +1,9 @@
+﻿  ProjectionProcessing.cpp
+d:\code\irisrepository\baseradius\projectionprocessing.cpp(899): warning C4005: '__FILENUM__': macro redefinition
+  d:\code\irisrepository\baseradius\projectionprocessing.cpp(10): note: see previous definition of '__FILENUM__'
+  ImageProcessing.cpp
+  Experiment.cpp
+d:\code\irisrepository\baseradius\experiment.cpp(3): fatal error C1083: Cannot open include file: 'opencv2/opencv.hpp': No such file or directory
+  BaseRadii.cpp
+d:\code\irisrepository\baseradius\baseradii.cpp(16): fatal error C1083: Cannot open include file: 'opencv2\opencv.hpp': No such file or directory
+  Generating Code...
