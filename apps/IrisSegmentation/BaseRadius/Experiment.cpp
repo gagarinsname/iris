@@ -4,6 +4,7 @@
 
 #include "GlobalParams.h"
 #include "BaseRadii.h"
+using namespace std;
 
 int main()
 {
@@ -12,9 +13,9 @@ int main()
         "D:\\data\\mixed\\params_res.txt",
         "D:\\data\\ProjectionFeatures6.csv");
 
-    printf("GenerateProjectionFeatures() returned %d", res);
+    printf("GenerateProjectionFeatures() returns %d.\n", res);
 
-    std::string str;
-    std::getline(std::cin, str);
+    char str;
+    cin << str;
 	return 0;
 }
