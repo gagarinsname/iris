@@ -10,7 +10,7 @@ int main()
     RESULT_CODE res = GenerateProjectionFeatures(
         "D:\\data\\mixed\\",
         "D:\\data\\mixed\\params_res.txt",
-        "D:\\data\\ProjectionFeatures.csv");
+        "D:\\data\\ProjectionFeatures6.csv");
 
     printf("GenerateProjectionFeatures() returned %d", res);
 

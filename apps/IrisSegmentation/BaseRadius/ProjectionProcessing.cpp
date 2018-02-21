@@ -989,6 +989,7 @@ RESULT_CODE IPL_PROJ_FindHoughDonatorProjection7(
       xs,
       ys,
       2.);
+
     // along y
     if (!nMaxRadOfDence)
       D = 0x10000;
@@ -1005,19 +1006,19 @@ RESULT_CODE IPL_PROJ_FindHoughDonatorProjection7(
       if ((y<1)||(y>=ys-1))
         continue;
       // left side
-      j_out = RR_ii = MIA_INT_sqrt(R*R-i*i);
+      j_out = RR_ii = INTSQRT(R*R-i*i);
       if (xc-j_out<1)
         j_out = xc-1;
       j_inn = (i>0)?i:(-i);
 //j_inn = 2*((i>0)?i:(-i));
       if (j_inn<r)
       {
-        rr_ii = MIA_INT_sqrt(r*r-i*i);
+        rr_ii = INTSQRT(r*r-i*i);
         if (j_inn<rr_ii)
           j_inn = rr_ii;
       }
       L = i*i+j_out*j_out;
-      currad = MIA_INT_sqrt(L);
+      currad = INTSQRT(L);
       psim = smoothedim+y*xs+xc-j_out;
       for (j=-j_out;j<=-j_inn;j++)
       {
@@ -1056,7 +1057,7 @@ RESULT_CODE IPL_PROJ_FindHoughDonatorProjection7(
       if (xc+j_out>xs-2)
         j_out = xs-2-xc;
       L = i*i+j_out*j_out;
-      currad = MIA_INT_sqrt(L);
+      currad = INTSQRT(L);
       psim = smoothedim+y*xs+xc+j_out;
       for (j=j_out;j>=j_inn;j--)
       {
@@ -1214,19 +1215,20 @@ RESULT_CODE IPL_PROJ_FindHoughDonatorProjection6(
       y = yc+i;
       if ((y<1)||(y>=ys-1))
         continue;
+
       // left side
-      j_out = RR_ii = MIA_INT_sqrt(R*R-i*i);
+      j_out = RR_ii = INTSQRT(R*R-i*i);
       if (xc-j_out<1)
         j_out = xc-1;
       j_inn = (i>0)?i:(-i);
       if (j_inn<r)
       {
-        rr_ii = MIA_INT_sqrt(r*r-i*i);
+        rr_ii = INTSQRT(r*r-i*i);
         if (j_inn<rr_ii)
           j_inn = rr_ii;
       }
       L = i*i+j_out*j_out;
-      currad = MIA_INT_sqrt(L);
+      currad = INTSQRT(L);
       pim = im+y*xs+xc-j_out;
       for (j=-j_out;j<=-j_inn;j++)
       {
@@ -1255,12 +1257,13 @@ RESULT_CODE IPL_PROJ_FindHoughDonatorProjection6(
         if (L<currad*currad)
           currad--;
       }
+
       // right side
       j_out = RR_ii;
       if (xc+j_out>xs-2)
         j_out = xs-2-xc;
       L = i*i+j_out*j_out;
-      currad = MIA_INT_sqrt(L);
+      currad = INTSQRT(L);
       pim = im+y*xs+xc+j_out;
       for (j=j_out;j>=j_inn;j--)
       {
@@ -1417,18 +1420,18 @@ RESULT_CODE IPL_PROJ_FindHoughDonatorProjection5(
       if ((y<1)||(y>=ys-1))
         continue;
       // left side
-      j_out = RR_ii = MIA_INT_sqrt(R*R-i*i);
+      j_out = RR_ii = INTSQRT(R*R-i*i);
       if (xc-j_out<1)
         j_out = xc-1;
       j_inn = (i>0)?i:(-i);
       if (j_inn<r)
       {
-        rr_ii = MIA_INT_sqrt(r*r-i*i);
+        rr_ii = INTSQRT(r*r-i*i);
         if (j_inn<rr_ii)
           j_inn = rr_ii;
       }
       L = i*i+j_out*j_out;
-      currad = MIA_INT_sqrt(L);
+      currad = INTSQRT(L);
       pim = im+y*xs+xc-j_out;
       for (j=-j_out;j<=-j_inn;j++)
       {
@@ -1461,7 +1464,7 @@ RESULT_CODE IPL_PROJ_FindHoughDonatorProjection5(
       if (xc+j_out>xs-2)
         j_out = xs-2-xc;
       L = i*i+j_out*j_out;
-      currad = MIA_INT_sqrt(L);
+      currad = INTSQRT(L);
       pim = im+y*xs+xc+j_out;
       for (j=j_out;j>=j_inn;j--)
       {
@@ -1615,18 +1618,18 @@ RESULT_CODE IPL_PROJ_FindHoughDonatorProjection5_Mask(
       if ((y<1)||(y>=ys-1))
         continue;
       // left side
-      j_out = RR_ii = MIA_INT_sqrt(R*R-i*i);
+      j_out = RR_ii = INTSQRT(R*R-i*i);
       if (xc-j_out<1)
         j_out = xc-1;
       j_inn = (i>0)?i:(-i);
       if (j_inn<r)
       {
-        rr_ii = MIA_INT_sqrt(r*r-i*i);
+        rr_ii = INTSQRT(r*r-i*i);
         if (j_inn<rr_ii)
           j_inn = rr_ii;
       }
       L = i*i+j_out*j_out;
-      currad = MIA_INT_sqrt(L);
+      currad = INTSQRT(L);
       pim = im+y*xs+xc-j_out;
       for (j=-j_out;j<=-j_inn;j++)
       {
@@ -1662,7 +1665,7 @@ RESULT_CODE IPL_PROJ_FindHoughDonatorProjection5_Mask(
       if (xc+j_out>xs-2)
         j_out = xs-2-xc;
       L = i*i+j_out*j_out;
-      currad = MIA_INT_sqrt(L);
+      currad = INTSQRT(L);
       pim = im+y*xs+xc+j_out;
       for (j=j_out;j>=j_inn;j--)
       {

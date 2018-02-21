@@ -20,7 +20,7 @@
 
 RESULT_CODE getMarkupData(SMarkup* cMarkupData, FILE* markupFile)
 {
-    int i, res;
+    int i;
     char* tmp = (char*)malloc(2 * MAX_FILENAME);
     if (!fgets(tmp, MAX_FILENAME, markupFile))
     {
@@ -133,7 +133,21 @@ RESULT_CODE GenerateProjectionFeatures(char* srcFolder, char* srcMarkupFile, cha
         int *pProjL = (int*)malloc(W * sizeof(int));
         int outRadius = W / 2;
         int buflen = 0;
-        if ((res = IPL_PROJ_FindHoughDonatorProjection7(
+        /*RESULT_CODE IPL_PROJ_FindHoughDonatorProjection6(
+            int* pnProjRN_b,          // OUT: circular projection - right side nums
+            int* pnProjLN_b,          // OUT: circular projection - left side nums
+            const unsigned char* im,  // IN:  image
+            int xs,                   // IN:  image size
+            int ys,                   // 
+            int xc,                   // IN:  ring center
+            int yc,                   //
+            int r,                    // IN:  inner radius
+            int* pR,                  // IN/OUT: outer radius proposed/actually used
+            int nMaxRadOfDence,       // IN:  maximum radius for dense processing. 0 - dense always
+            void* buf,                // IN:  external buffer
+            int* buflen)              // IN/OUT: allocated/used bytes
+*/
+        if ((res = IPL_PROJ_FindHoughDonatorProjection6(
             pProjR, pProjL,
             (const uint8*)srcImage.data, W, H, cMarkupData.pupil.xc, cMarkupData.pupil.yc,
             20, &outRadius, 0,// dense analysis
@@ -144,7 +158,7 @@ RESULT_CODE GenerateProjectionFeatures(char* srcFolder, char* srcMarkupFile, cha
         }
         printf("ProjectionCalc(): buf len: %d\n", buflen);
         void* buf = malloc(buflen);
-        if ((res = IPL_PROJ_FindHoughDonatorProjection7(
+        if ((res = IPL_PROJ_FindHoughDonatorProjection6(
             pProjR, pProjL,
             (const uint8*)srcImage.data, W, H, cMarkupData.pupil.xc, cMarkupData.pupil.yc,
             20, &outRadius, 0,// dense analysis

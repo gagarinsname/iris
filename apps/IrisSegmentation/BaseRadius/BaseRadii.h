@@ -41,6 +41,20 @@ RESULT_CODE IPL_PROJ_FindHoughDonatorProjection7(
     void* buf,                // IN:  external buffer
     int* buflen);              // IN/OUT: allocated/used bytes
 
+RESULT_CODE IPL_PROJ_FindHoughDonatorProjection6(
+    int* pnProjRN_b,          // OUT: circular projection - right side nums
+    int* pnProjLN_b,          // OUT: circular projection - left side nums
+    const unsigned char* im,  // IN:  image
+    int xs,                   // IN:  image size
+    int ys,                   // 
+    int xc,                   // IN:  ring center
+    int yc,                   //
+    int r,                    // IN:  inner radius
+    int* pR,                  // IN/OUT: outer radius proposed/actually used
+    int nMaxRadOfDence,       // IN:  maximum radius for dense processing. 0 - dense always
+    void* buf,                // IN:  external buffer
+    int* buflen);              // IN/OUT: allocated/used bytes
+
 // ordinary bazrad detection
 RESULT_CODE IVIR_PrPu(
 	SPupilInfo* psPI,

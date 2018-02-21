@@ -21,7 +21,7 @@ enum ERROR_CODES {
     ERROR_WRONG_INPUT
 };
 
-#define MIA_INT_sqrt(x) (int)(sqrt(x))
+#define INTSQRT(x) (int)(sqrt(x))
 
 #define int40 long long
 typedef unsigned char uint8;
