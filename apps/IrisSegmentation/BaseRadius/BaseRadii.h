@@ -13,6 +13,9 @@
 #include "GlobalParams.h"
 #include "BorderDetection.h"
 
+#define MINIMAL_PUPIL_RADIUS 50
+#define EXTERN_DLL_EXPORT extern __declspec(dllexport)  
+
 typedef struct SMarkup
 {
     char filename[MAX_FILENAME];
@@ -21,11 +24,57 @@ typedef struct SMarkup
 } SMarkup;
 
 
-RESULT_CODE GenerateProjectionFeatures(
+/*RESULT_CODE GenerateProjectionFeatures(
     char* srcFolder,            // source images folder
     char* srcMarkupFile,        // markup file for them
     char* dstFile);             // resulting feature file
+*/
+EXTERN_DLL_EXPORT RESULT_CODE myDetectBaseRadii(
+    SPupilInfo* psPI,         // OUT: pupil data
+    SIrisInfo* psII,          // OUT: iris data
+    SCenterInfo* psCI,        // IN:  center data
+    unsigned char* im,        // IN:  source image
+    int W,                    // IN:  image size
+    int H,                    //
+    int* kernel3x3,           // edge detection kernel: kernel3x3[] = { -3, 0, 3, -10, 0, 10, -3, 0, 3 };
+    int angMin,               // minimal projection estimation angle
+    int angMax,               // maximal projection estimation angle
+    int minR,                 // minimal radius
+    int maxR,                 // maximal radius
+    int thrHoriz,             // threshold for horizontal derivative
+    float thrDot,             // threshold for circular shape: 0.8 - 1.0
+    int* pProjR,              // circular projection - right side nums
+    int* pProjL               // circular projection - left side nums
+);
 
+#define BLUR_HIST_WND 4
+RESULT_CODE FindHoughProjection(
+    int* pProjR,                // OUT: circular projection - right side nums
+    int* pProjL,                // OUT: circular projection - left side nums
+    int angBeg,                 // IN: start angle for projection
+    int angEnd,                 // IN: end angle for projection
+    int* Kernel3x3,             // IN: edge detection kernel
+    int thrHoriz,               // IN: horizontal derivative threshold
+    int thrDot,                 // IN: circular shape threshold
+    int minR,
+    int maxR,
+    unsigned char* im,          // IN: source image
+    int xs,                     // IN: image size
+    int ys,                     //
+    int xc,                     // IN: center x coordinate
+    int yc);                    // IN: center y coordinate
+
+EXTERN_DLL_EXPORT int DetectBaseRadii(
+    SPupilInfo* psPI,         // OUT: pupil data
+    SIrisInfo* psII,          // OUT: iris data
+    const SCenterInfo* psCI,  // IN:  center data
+    const unsigned char* im,  // IN:  source image
+    int xs,                   // IN:  image size
+    int ys,                   //
+    int* pProjR,               // circular projection - right side nums
+    int* pProjL               // circular projection - left side nums
+    // int mode // mask: 1- draw projs to buf, 2- use projs from buf
+);
 
 RESULT_CODE IPL_PROJ_FindHoughDonatorProjection7(
     int* pnProjRN_b,          // OUT: circular projection - right side nums
@@ -55,20 +104,34 @@ RESULT_CODE IPL_PROJ_FindHoughDonatorProjection6(
     void* buf,                // IN:  external buffer
     int* buflen);              // IN/OUT: allocated/used bytes
 
-// ordinary bazrad detection
+RESULT_CODE IPL_PROJ_FindHoughDonatorProjection5(
+    int* pnProjRN_b,          // OUT: circular projection - right side nums
+    int* pnProjLN_b,          // OUT: circular projection - left side nums
+    const unsigned char* im,  // IN:  image
+    int xs,                   // IN:  image size
+    int ys,                   // 
+    int xc,                   // IN:  ring center
+    int yc,                   //
+    int r,                    // IN:  inner radius
+    int* pR,                  // IN/OUT: outer radius proposed/actually used
+    int nMaxRadOfDence,       // IN:  maximum radius for dense processing. 0 - dense always
+    void* buf,                // IN:  external buffer
+    int* buflen);
+
+// detect approximate pupil and iris by projection method
 RESULT_CODE IVIR_PrPu(
-	SPupilInfo* psPI,
-	SIrisInfo* psII,
-	const SCenterInfo* psCI,
-	const unsigned char* im,
-	int xs,
-	int ys,
-	int mode, // mask: 1- draw projs to buf, 2- use projs from buf
-	int br_size,    // predefined iris size (-1 - not predefined)
-	int br_spread,  // predefined spread of iris size (-1 - not predefined)
-	void* buf,
-	int* buflen,
-	const char* nambeg);
+    SPupilInfo* psPI,         // OUT: pupil data
+    SIrisInfo* psII,          // OUT: iris data
+    const SCenterInfo* psCI,  // IN:  center data
+    const unsigned char* im,  // IN:  source image
+    int xs,                   // IN:  image size
+    int ys,                   //
+    int mode, // mask: 1- draw projs to buf, 2- use projs from buf
+    int br_size,    // predefined iris size (-1 - not predefined)
+    int br_spread,  // predefined spread of iris size (-1 - not predefined)
+    int* projR,
+    int* projL,
+    const char* nambeg);       // used for debug, set to NULL
 
 // detection of bazrad with red-eye effect
 RESULT_CODE IVIR_PrPuRE(
@@ -82,10 +145,10 @@ RESULT_CODE IVIR_PrPuRE(
 	int* pnLoc,               // OUT: buffer size outputted
 	const char* nambeg);      // used for debug, set to NULL
 
-							  // Estimates iris X coord and radius. Sets Y equal to pupil. 
-							  // Outputs two qualities: q1 for right side and q2 for left side. 
-							  // pIris->OccUpB is set to special flag
-							  // pIris->OccUpE is set to maximum iris radius searched
+// Estimates iris X coord and radius. Sets Y equal to pupil. 
+// Outputs two qualities: q1 for right side and q2 for left side. 
+// pIris->OccUpB is set to special flag
+// pIris->OccUpE is set to maximum iris radius searched
 RESULT_CODE IVIR_FindApproximateIrisByPupil_br(
 	SIrisInfo* pIris,           // OUT: iris data
 	const SPupilInfo* pPupil,   // IN:  pupil data
@@ -111,6 +174,7 @@ RESULT_CODE IVIR_FindApproximateIrisByPupil2(
 
 								// Estimates iris X coord and radius. Sets Y equal to pupil. 
 								// Outputs two qualities: q1 for right side and q2 for left side. 
+
 RESULT_CODE IVIR_FindApproximateIrisByPupil3(
 	SIrisInfo* pIris,           // OUT: iris data
 	const SPupilInfo* pPupil,   // IN:  pupil data

@@ -14,6 +14,7 @@
 #include <string.h>
 #include <malloc.h>
 #include <memory.h>
+#include <iostream>
 
 #include "GlobalParams.h"
 #include "BaseRadii.h"
@@ -26,6 +27,255 @@ typedef struct
 	int pos;
 	int val;
 } SProjectionMaximum;
+
+typedef struct
+{
+    int q;
+    int xpl;
+    int xpr;
+    int xil;
+    int xir;
+    int vpl;
+    int vpr;
+    int vil;
+    int vir;
+    char casechar;
+} SBazRadHyp;
+
+
+
+RESULT_CODE FindHoughProjection(
+    int* pProjR,
+    int* pProjL,
+    int angBeg,
+    int angEnd,
+    int* Kernel3x3,
+    int thrHoriz,
+    int thrDot,
+    int minR,
+    int maxR,
+    unsigned char* im,
+    int xs,
+    int ys,
+    int xc,
+    int yc)
+{
+    if (angEnd > 90 || angEnd < -90 || angBeg < -90 || angBeg > 90 || angEnd <= angBeg)
+    {
+        fprintf(stderr, "ERROR: FindHoughProjection: wrong angle parameters.\n");
+        return ERROR_WRONG_INPUT;
+    }
+    if (NULL == im || xs < 1 || ys < 1)
+    {
+        fprintf(stderr, "ERROR: FindHoughProjection: wrong src image parameters.\n");
+        return ERROR_WRONG_INPUT;
+    }
+    if (NULL == Kernel3x3)
+    {
+        fprintf(stderr, "ERROR: FindHoughProjection: wrong edge kernel parameters.\n");
+        return ERROR_WRONG_INPUT;
+    }
+    if (NULL == pProjL)
+    {
+        fprintf(stderr, "ERROR: FindHoughProjection: left projection buffer is NULL.\n");
+        return ERROR_WRONG_INPUT;
+    }
+    if (NULL == pProjR)
+    {
+        fprintf(stderr, "ERROR: FindHoughProjection: right projection buffer is NULL.\n");
+        return ERROR_WRONG_INPUT;
+    }
+
+    float kEnd = tanf((float)(angEnd) / 180 * PI), kBeg = tanf((float)(angBeg) / 180 * PI);
+    int minY, maxY;
+    // numerical limits
+    if (kBeg <= 1e-4 && kBeg >= -1e-4)
+        minY = yc;
+    else
+    {
+        float xIntercept = -(float)yc / (kBeg + 1e-7) + xc;
+        // printf("intercept: %f\n", xIntercept);
+        minY = (int)(((xIntercept < (float)xs) ? .0 : -kBeg * (xIntercept - (float)xs)) + .5f);
+    }
+
+    if (kEnd <= 1e-4 && kEnd >= -1e-4)
+        maxY = yc;
+    else
+    {
+        float xIntercept = (float)(ys - yc) / (kEnd + 1e-7) + xc;
+        // printf("intercept: %f\n", xIntercept);
+        maxY = (int)(((xIntercept < (float)xs) ? (float)ys : (float)ys - kEnd * (xIntercept - (float)xs)) + .5f);
+    }
+    // sanity check
+    minY = MIA_max(0, minY);
+    maxY = MIA_min(maxY, ys);
+
+    // num points in circle
+    int* numPoR = (int*)malloc(xs * sizeof(int));
+    int* numPoL = (int*)malloc(xs * sizeof(int));
+    memset(numPoL, 0, xs * sizeof(int));
+    memset(numPoR, 0, xs * sizeof(int));
+    int* numPoR_b = (int*)malloc(xs * sizeof(int));
+    int* numPoL_b = (int*)malloc(xs * sizeof(int));
+
+    int* pnProjR = (int*)malloc(xs * sizeof(int));
+    int* pnProjL = (int*)malloc(xs * sizeof(int));
+    memset(pnProjR, 0, xs * sizeof(int));
+    memset(pnProjL, 0, xs * sizeof(int));
+
+    // right side
+    for (int y = minY + 1; y < maxY - 1; ++y)
+    {
+        uint8 *pImRow = im + y * xs + xc - 1;
+        uint8 *pImRowPrev = im + (y - 1) * xs + xc - 1;
+        uint8 *pImRowNext = im + (y + 1) * xs + xc - 1;
+
+        for (int x = 0; x < xs - xc - 1; ++x)
+        {
+            ++pImRow;
+            ++pImRowPrev;
+            ++pImRowNext;
+
+            int r = INTSQRT(x*x + (y - yc)*(y - yc));
+
+            int gx =
+                Kernel3x3[0] * pImRowPrev[-1] + Kernel3x3[1] * pImRowPrev[0] + Kernel3x3[2] * pImRowPrev[1] +
+                Kernel3x3[3] * pImRow[-1] + Kernel3x3[4] * pImRow[0] + Kernel3x3[5] * pImRow[1] +
+                Kernel3x3[6] * pImRowNext[-1] + Kernel3x3[7] * pImRowNext[0] + Kernel3x3[8] * pImRowNext[1];
+
+            // std ::cout << gx << " ";
+            if (gx < thrHoriz)
+                continue;
+            ++numPoR[r];
+            if ((float)x * kBeg <= y - yc && (float)x * kEnd >= y - yc)
+            {
+                // *pImRow = 255;
+                int gy =
+                    Kernel3x3[0] * pImRowPrev[-1] + Kernel3x3[3] * pImRowPrev[0] + Kernel3x3[6] * pImRowPrev[1] +
+                    Kernel3x3[1] * pImRow[-1] + Kernel3x3[4] * pImRow[0] + Kernel3x3[7] * pImRow[1] +
+                    Kernel3x3[2] * pImRowNext[-1] + Kernel3x3[5] * pImRowNext[0] + Kernel3x3[8] * pImRowNext[1];
+                // std::cout << gy << " ";
+                int G = INTSQRT(gx * gx + gy * gy);
+                // std::cout << G << " " << r;
+                if ((float)(gx * x + gy * (y - yc)) >= 2 * thrDot * G * r)
+                {
+                    // std::cout << gx << " " << gy << " " << G  << " " << r << std:: endl;
+                    ++pnProjR[r];
+                }
+            }
+        }
+        // std::cout << std::endl;
+    }
+    // left side
+    kBeg = -kBeg;
+    kEnd = -kEnd;
+    // std::cout << "Left side!" << kBeg << " " << kEnd << std::endl;
+    if (kBeg <= 1e-4 && kBeg >= -1e-4)
+        minY = yc - 1;
+    else
+    {
+        float xIntercept = -(float)yc / (kBeg + 1e-7) + xc;
+        // printf("intercept: %f\n", xIntercept);
+        minY = (int)(((xIntercept >= 0) ? .0 : -kBeg * xIntercept + .5f));
+    }
+
+    if (kEnd <= 1e-4 && kEnd >= -1e-4)
+        maxY = yc + 1;
+    else
+    {
+        float xIntercept = (float)(ys - yc) / (kEnd + 1e-7) + xc;
+        // printf("intercept: %f\n", xIntercept);
+        maxY = (int)(((xIntercept >= 0) ? (float)ys : (float)ys - kEnd * xIntercept + .5f));
+    }
+    // sanity check
+    minY = MIA_max(0, minY);
+    maxY = MIA_min(maxY, ys);
+    // std::cout << "Min Y " << minY << "Max Y " << maxY << std::endl;
+    for (int y = minY + 1; y < maxY - 1; ++y)
+    {
+        uint8 *pImRow = im + y * xs + xc + 1;
+        uint8 *pImRowPrev = im + (y - 1) * xs + xc + 1;
+        uint8 *pImRowNext = im + (y + 1) * xs + xc + 1;
+
+        int xBeg = (y < yc) ? (int)((float)(y - yc) / kBeg + 1) : (int)((float)(y - yc) / kEnd + 1);
+        for (int x = 0; x > -xc; --x)
+        {
+            --pImRow;
+            --pImRowPrev;
+            --pImRowNext;
+
+            int r = INTSQRT(x*x + (y - yc)*(y - yc));
+
+            int gx =
+                Kernel3x3[0] * pImRowPrev[-1] + Kernel3x3[1] * pImRowPrev[0] + Kernel3x3[2] * pImRowPrev[1] +
+                Kernel3x3[3] * pImRow[-1] + Kernel3x3[4] * pImRow[0] + Kernel3x3[5] * pImRow[1] +
+                Kernel3x3[6] * pImRowNext[-1] + Kernel3x3[7] * pImRowNext[0] + Kernel3x3[8] * pImRowNext[1];
+            if (gx > -thrHoriz)
+                continue;
+
+            ++numPoL[r];
+
+            if ((float)x * kBeg <= (float)(y - yc) && (float)x * kEnd >= (float)(y - yc))
+            {
+                // *pImRow = 254;
+                int gy =
+                    Kernel3x3[0] * pImRowPrev[-1] + Kernel3x3[3] * pImRowPrev[0] + Kernel3x3[6] * pImRowPrev[1] +
+                    Kernel3x3[1] * pImRow[-1] + Kernel3x3[4] * pImRow[0] + Kernel3x3[7] * pImRow[1] +
+                    Kernel3x3[2] * pImRowNext[-1] + Kernel3x3[5] * pImRowNext[0] + Kernel3x3[8] * pImRowNext[1];
+
+                int G = INTSQRT(gx * gx + gy * gy);
+                if (gx * x + gy * (y - yc) >= 2 * thrDot * G * r)
+                {
+                    // std::cout << r << " " << pnProjL[r] << std::endl;
+                    ++pnProjL[r];
+                }
+            }
+        }
+    }
+
+    // normalize
+    for (int i = minR; i <= maxR; i++)
+    {
+        // std::cout << numPoR[i] << " ";
+        // pnProjR[i] = (numPoR[i]) ? (int)((1024 * pnProjR[i]) / numPoR[i]) : 0;
+        pnProjR[i] = (numPoR[i]) ? (int)((1024 * pnProjR[i]) / (i)) : 0;
+        // std::cout << (float)(pnProjR[i]) / (numPoR[i] + 1e-5) << std::endl;
+        pnProjL[i] = (numPoL[i]) ? (int)((1024 * pnProjL[i]) / (i)) : 0;
+    }
+    for (int i = 0; i < minR; i++)
+    {
+        numPoR[i] = numPoR[minR];
+        numPoL[i] = numPoL[minR];
+        pnProjR[i] = pnProjR[minR];
+        pnProjL[i] = pnProjL[minR];
+    }
+    // std::cout << std::endl;
+    // process histogram: blur
+    IPL_HIST_Blur(numPoR_b, numPoR, maxR + 1, BLUR_HIST_WND);
+    IPL_HIST_Blur(numPoL_b, numPoL, maxR + 1, BLUR_HIST_WND);
+    IPL_HIST_Blur(pProjR, pnProjR, maxR + 1, BLUR_HIST_WND);
+    IPL_HIST_Blur(pProjL, pnProjL, maxR + 1, BLUR_HIST_WND);
+
+    // correct for small presence
+    for (int i = 1; i <= maxR; i++)
+    {
+        int L = 10000 * numPoR_b[i] / (157 * (2 * BLUR_HIST_WND + 1)*i);
+        if (L < 20)
+            pProjR[i] = 0;
+        L = 10000 * numPoL_b[i] / (157 * (2 * BLUR_HIST_WND + 1)*i);
+        if (L < 20)
+            pProjL[i] = 0;
+    }
+
+    free(pnProjL);
+    free(pnProjR);
+    free(numPoR);
+    free(numPoL);
+    free(numPoR_b);
+    free(numPoL_b);
+    return ERROR_OK;
+}
+
 
 
 static int ownIVIR_SortMaxima_by_ValPos(
@@ -263,6 +513,86 @@ static void IVIR_ProjPostProcess2(
 	return res;
 }*/
 
+
+static int ownIVIR_CorrectBazradHyp(
+    int isLeft,
+    const SBazRadHyp* psbrh,
+    int nHyp,
+    int Xpl,
+    int Xpr,
+    int Xil,
+    int Xir,
+    const int* projR,
+    const int* anMaxsR,
+    int nMaxR,
+    const int* projL,
+    const int* anMaxsL,
+    int nMaxL,
+    int ProjLen)
+{
+    int hypidx, maxidxNew, IrNew, maxidxOld;//VolOld,VolNew,
+
+    // find hyp
+    for (hypidx = 0; hypidx<nHyp; hypidx++)
+        if ((psbrh[hypidx].xpl == Xpl) && (psbrh[hypidx].xpr == Xpr) &&
+            (psbrh[hypidx].xil == Xil) && (psbrh[hypidx].xir == Xir))
+            break;
+    if (hypidx == nHyp)
+        return -1;  // no hyp found
+    if (!isLeft)
+    { // correction for right
+      // locate max on the right of hyp
+        for (maxidxOld = 0; (maxidxOld<nMaxR) && (anMaxsR[2 * maxidxOld]<Xir); maxidxOld++);
+        if (maxidxOld == nMaxR)
+            return -2;  // cannot find index for old maximum
+        maxidxNew = maxidxOld + 1;
+        if (maxidxNew == nMaxR)
+            return -3;  // no max outside of iris found
+        IrNew = anMaxsR[2 * maxidxNew];
+        //      if (2*(IrNew-Xir)>Xir-Xpr)
+        //      return 0;   // too big correction required
+        //      if (projR[IrNew]>2*projR[anMaxsR[2*maxidxNew-1]])
+        //      return 0;   // gap between maxima is too deep
+        //      if (projR[IrNew]*10>projR[Xir]*9)
+        if (projR[IrNew]>projR[Xir])
+            return IrNew;
+        /*      if (projR[IrNew]*5>projR[Xir]*4)
+        { // enough big projection value - decide
+        VolOld = ownIVIR_GetPeakVol(projR,anMaxsR,nMaxR,maxidxOld,ProjLen);
+        VolNew = ownIVIR_GetPeakVol(projR,anMaxsR,nMaxR,maxidxNew,ProjLen);
+        return (VolOld>=VolNew)?0:IrNew;
+        }*/
+        return 0;
+    }
+    else
+    { // correction for right
+      // locate max on the right of hyp
+        for (maxidxOld = 0; (maxidxOld<nMaxL) && (anMaxsL[2 * maxidxOld]<Xil); maxidxOld++);
+        if (maxidxOld == nMaxL)
+            return -2;  // cannot find index for old maximum
+        maxidxNew = maxidxOld + 1;
+        if (maxidxNew == nMaxL)
+            return -3;  // no max outside of iris found
+        IrNew = anMaxsL[2 * maxidxNew];
+        //      if (2*(IrNew-Xil)>Xil-Xpl)
+        //      return 0;   // too big correction required
+        //      if (projL[IrNew]>2*projL[anMaxsL[2*maxidxNew-1]])
+        //      return 0;   // gap between maxima is too deep
+        //      if (projL[IrNew]*10>projL[Xil]*9)
+        if (projL[IrNew]>projL[Xil])
+            return IrNew;
+        /*      if (projL[IrNew]*5>projL[Xil]*4)
+        { // enough big projection value - decide
+        VolOld = ownIVIR_GetPeakVol(projL,anMaxsL,nMaxL,maxidxOld,ProjLen);
+        VolNew = ownIVIR_GetPeakVol(projL,anMaxsL,nMaxL,maxidxNew,ProjLen);
+        return (VolOld>=VolNew)?0:IrNew;
+        }*/
+        return 0;
+    }
+}
+
+
+
 int IVIR_ProjPostProcess(  // returns unnormed histogram maximum
 	int* hist,
 	int len)
@@ -363,9 +693,6 @@ int IVIR_P2I_GeomQuality(
 	return Qual;
 }
 
-
-#define BLUR_HIST_WND 4
-
 /*typedef struct
 {
     int idx;    // [IURII] originally missed
@@ -375,170 +702,6 @@ int IVIR_P2I_GeomQuality(
     int wid;    // width of a peak at half-height
 } SProjectionMaximum;*/
 
-
-// detect approximate pupil and iris by projection method
-RESULT_CODE IVIR_PrPuRE(
-    SBazRadInfo* psBI,        // OUT: bazrad data
-    const SCenterInfo* psCI,  // IN:  center data
-    const unsigned char* im,  // IN:  source image
-    int xs,                   // IN:  image size
-    int ys,                   //
-    int mode, // mask: 1- draw projs to buf, 2- use projs from buf
-    void* buf,                // IN:  buffer for output/inpup projection
-    int* pnLoc,               // OUT: buffer size outputted
-    const char* nambeg)       // used for debug, set to NULL
-{
-    return -1;
-    /*
-    MIA_RESULT_CODE res=ERR_OK;
-    int sz,r,R,szp,xc,yc,Xpl,Xpr,Xil,Xir,casechar;
-    int *pnRiPoVal,*pnLePoVal,*pnRiNeVal,*pnLeNeVal;
-    void* projtmpbuf;
-    unsigned char* imv = NULL,*medline;
-    int *anMaxsR_ = NULL,*anMaxsL_ = NULL,nMaxR,nMaxL;
-    int *anMaxsR,*anMaxsL;
-
-    // check arguments
-    if (pnLoc==NULL)
-    return ERR_GEN_NULLPOINTER;
-    if ((xs<=0)||(ys<=0))
-    return ERR_GEN_INVALID_PARAMETER;
-    // choose mode
-    if (mode&IVIR_ARRPOXIR_GENPROJ)
-    {
-    if (psCI==NULL)
-    {
-    res = ERR_GEN_NULLPOINTER;
-    goto IVIR_PrPu_exit;
-    }
-    // evaluate radii
-    res = IPL_PROJ_CircularProjection1(NULL,NULL,xs,ys,psCI->xc,psCI->yc,&r,&R);
-    if (res!=ERR_OK)
-    goto IVIR_PrPu_exit;
-    // add this function's own requirements
-    sz = sizeof(int)+ // ID
-    sizeof(int)+ // radius
-    R*4;         // projections
-    // check size
-    if (buf==NULL)
-    {
-    *pnLoc = sz;
-    goto IVIR_PrPu_exit;
-    }
-    if (*pnLoc<sz)
-    {
-    res = ERR_GEN_NOMEMORY;
-    goto IVIR_PrPu_exit;
-    }
-    // check more args
-    if (im==NULL)
-    {
-    res = ERR_GEN_NULLPOINTER;
-    goto IVIR_PrPu_exit;
-    }
-    // allocate buffer
-    ((int*)buf)[0] = PROJVER;
-    ((int*)buf)[1] = R;
-    pnRiPoVal = &(((int*)buf)[2]);
-    pnLePoVal = pnRiPoVal+R;
-    pnRiNeVal = pnLePoVal+R;
-    pnLeNeVal = pnRiNeVal+R;
-    // build projections
-    res = IPL_PROJ_CircularProjection1(pnRiPoVal,im,xs,ys,psCI->xc,psCI->yc,&r,&R);
-    if (res!=ERR_OK)
-    goto IVIR_PrPu_exit;
-    }
-    // choose mode
-    if (!(mode&IVIR_ARRPOXIR_USEPROJ))
-    goto IVIR_PrPu_exit;
-    // check more args
-    if ((psBI==NULL)||(psCI==NULL))
-    {
-    res = ERR_GEN_NULLPOINTER;
-    goto IVIR_PrPu_exit;
-    }
-    // list maxima
-    ownIVIR_ListProjectionMaxima(&pMaxRi    ,&nMaxRi    ,pnRiPoVal,R, 1);
-    ownIVIR_ListProjectionMaxima(&pMaxRi_neg,&nMaxRi_neg,pnRiNeVal,R,-1);
-    ownIVIR_ListProjectionMaxima(&pMaxLe    ,&nMaxLe    ,pnLePoVal,R, 1);
-    ownIVIR_ListProjectionMaxima(&pMaxLe_neg,&nMaxLe_neg,pnLeNeVal,R,-1);
-    pMaxRi = (SProjectionMaximum*)realloc((pnRiPoVal+pnRiNeVal)*sizeof(pMaxRi[0]));
-    memcpy(pMaxRi+pnRiPoVal,pMaxRi_neg,pnRiNeVal*sizeof(pMaxRi[0]));
-    nMaxRi += nMaxRi_neg;
-    pMaxLe = (SProjectionMaximum*)realloc((pnLePoVal+pnLeNeVal)*sizeof(pMaxLe[0]));
-    memcpy(pMaxLe+pnLePoVal,pMaxLe_neg,pnLeNeVal*sizeof(pMaxLe[0]));
-    nMaxLe += nMaxLe_neg;
-    free(pMaxRi_neg);
-    pMaxRi_neg = NULL;
-    free(pMaxLe_neg);
-    pMaxLe_neg = NULL;
-    // normalise center
-    xc = psCI->xc;
-    yc = psCI->yc;
-    //
-    casechar = 0;
-    ownIVIR_SelectBazrad(
-    (char*)(&casechar),&Xpl,&Xpr,&Qp,&Xil,&Xir,&Qi,
-    pMaxRi,nMaxRi,pMaxLe,nMaxLe);
-    if (nambeg&&im)
-    {
-    char nama[FILENAME_MAX];
-    imv = (unsigned char*)malloc(xs*ys*3);
-    DBGL_PUMP_Make3Bpp(imv,xs*3,im,xs,xs,ys);
-    // center, search bound, true pupil, true iris
-    DBGL_DRAW_CircleInRGB(imv,xs*3,xs,ys,xc,yc,10,0x00ff00);
-    DBGL_DRAW_CircleInRGB(imv,xs*3,xs,ys,xc,yc,R,0x00ff00);
-    DBGL_DRAW_CircleInRGB(imv,xs*3,xs,ys,psPI->xc,psPI->yc,psPI->r,0x003f00);
-    DBGL_DRAW_CircleInRGB(imv,xs*3,xs,ys,psII->xc,psII->yc,psII->r,0x003f00);
-    // detected pupil, detected iris
-    DBGL_DRAW_CircleInRGB(imv,xs*3,xs,ys,xc+(Xpr-Xpl)/2,yc,(Xpr+Xpl)/2,0xff0000);
-    DBGL_DRAW_CircleInRGB(imv,xs*3,xs,ys,xc+(Xir-Xil)/2,yc,(Xir+Xil)/2,0xff7f00);
-    // histograms with maxima and principal maximum
-    DBGL_DRAW_HistogramInRGBext(imv                     ,R,100,xs*3,projL_b,R,1);
-    DBGL_DRAW_HistogramInRGBext(imv+(xs-R)*3            ,R,100,xs*3,projR_b,R,1);
-    DBGL_DRAW_StrobesInRGB(imv,R,100,xs*3,projL_b,R,anMaxsL_,nMaxL*2+1,0xff0000);
-    DBGL_DRAW_StrobesInRGB(imv+(xs-R)*3,R,100,xs*3,projR_b,R,anMaxsR_,nMaxR*2+1,0xff0000);
-    DBGL_DRAW_HistogramInRGBext_uchar(imv+xs*(ys-50)*3,xs,50,xs*3,medline,xs,1);
-    if (Xpl>=0)
-    anMaxsL[0] = Xpl;
-    if (Xil>=0)
-    anMaxsL[(Xpl>=0)] = Xil;
-    if (Xpr>=0)
-    anMaxsR[0] = Xpr;
-    if (Xir>=0)
-    anMaxsR[(Xpr>=0)] = Xir;
-    DBGL_DRAW_StrobesInRGB(imv,R,100,xs*3,projL_b,R,anMaxsL,(Xpl>=0)+(Xil>=0),0x0000ff);
-    DBGL_DRAW_StrobesInRGB(imv+(xs-R)*3,R,100,xs*3,projR_b,R,anMaxsR,(Xpr>=0)+(Xir>=0),0x0000ff);
-    // text report
-    sprintf(nama,"%c %d",(char)casechar,psII->q2);
-    DBGL_TYPE_TextInRGB(imv,xs,ys,nama,0,ys/2,0xff00ff,-1);
-    sprintf(nama,"%s_%02x%s.bmp",nambeg,casechar&0xff,(psII->q2<=10)?"good":"bad");
-    DBGL_FILE_SaveRGB8Image(imv,xs,xs,ys,nama);
-    free(imv);
-    }
-    if ((Xpr>=0)&&(Xpl>=0))
-    {
-    psPI->xc = xc+(Xpr-Xpl)/2;
-    psPI->yc = yc;
-    psPI->r = (Xpr+Xpl)/2;
-    }
-    else
-    psPI->xc = psPI->yc = psPI->r = -1;
-    if ((Xir>=0)&&(Xil>=0))
-    {
-    psII->xc = xc+(Xir-Xil)/2;
-    psII->yc = yc;
-    psII->r = (Xir+Xil)/2;
-    }
-    else
-    psII->xc = psII->yc = psII->r = -1;
-    psII->q2 = casechar;
-    IVIR_PrPu_exit:;
-    if (anMaxsR_)
-    free(anMaxsR_);
-    return res;
-    */
-}
 
 #define BLUR_HIST_WND 4
 
@@ -696,20 +859,6 @@ void ownIVIR_GetMaxSubMax(
     *pMax3 = _sbbmax;
 }
 
-typedef struct
-{
-    int q;
-    int xpl;
-    int xpr;
-    int xil;
-    int xir;
-    int vpl;
-    int vpr;
-    int vil;
-    int vir;
-    char casechar;
-} SBazRadHyp;
-
 int ownIVIR_sortSBRH(
     const void* e1,
     const void* e2)
@@ -729,173 +878,6 @@ int ownIVIR_sortSBRH(
 }
 
 // detect approximate pupil and iris by projection method
-/*
-RESULT_CODE IVIR_PrPu(
-    SPupilInfo* psPI,         // OUT: pupil data
-    SIrisInfo* psII,          // OUT: iris data
-    const SCenterInfo* psCI,  // IN:  center data
-    const unsigned char* im,  // IN:  source image
-    int xs,                   // IN:  image size
-    int ys,                   //
-    int mode,                 // mask: 1- draw projs to buf, 2- use projs from buf
-    int br_size,              // predefined iris size (-1 - not predefined)
-    int br_spread,            // predefined spread of iris size (-1 - not predefined)
-    void* buf,                // IN:  temporary buffer
-    int* buflen,              // IN/OUT: buffer size allocated/used
-    const char* nambeg)       // used for debug, set to NULL
-{
-    RESULT_CODE res = ERROR_OK;
-    int sz, r, R, szp, xc, yc, Xpl, Xpr, Xil, Xir, casechar;
-    int *projL_b, *projR_b;
-    void* projtmpbuf;
-    unsigned char* imv = NULL, *medline;
-    int *anMaxsR_ = NULL, *anMaxsL_ = NULL, nMaxR, nMaxL;
-    int *anMaxsR, *anMaxsL;
-
-    // check arguments
-    if (buflen == NULL)
-        return ERROR_NULL_POINTER;
-    if ((xs <= 0) || (ys <= 0))
-        return ERROR_WRONG_INPUT;
-    // alloc
-    anMaxsR_ = (int*)malloc(((xs + 2) * 2) * sizeof(anMaxsR_[0]));
-    anMaxsL_ = anMaxsR_ + xs + 2;
-    anMaxsR = anMaxsR_ + 1;
-    anMaxsL = anMaxsL_ + 1;
-    // get radii of ring
-    r = 10;
-    //R = xs/2-4;
-    R = xs / 2;
-    sz = 0;
-    // evaluate radius
-    //    res = IPL_PROJ_FindHoughDonatorProjection5(
-    res = IPL_PROJ_FindHoughDonatorProjection7(
-        NULL, NULL, NULL, xs, ys, xs / 2, ys / 2, r, &R, 0, NULL, &szp);
-    if (res != ERROR_OK)
-        goto IVIR_PrPu_exit;
-    if (mode&IVIR_ARRPOXIR_GENPROJ)
-    {
-        // add this function's own requirements
-        sz = szp + 2 * sizeof(int)*(xs / 2) + xs;
-    }
-    
-    // check more args
-    if ((psPI == NULL) || (psII == NULL) || (psCI == NULL))
-    {
-        res = ERROR_NULL_POINTER;
-        goto IVIR_PrPu_exit;
-    }
-    if ((mode&IVIR_ARRPOXIR_GENPROJ) && (im == NULL))
-    {
-        res = ERROR_NULL_POINTER;
-        goto IVIR_PrPu_exit;
-    }
-    if ((mode&(IVIR_ARRPOXIR_GENPROJ | IVIR_ARRPOXIR_USEPROJ)) == 0)
-    {
-        res = ERROR_WRONG_INPUT;
-        goto IVIR_PrPu_exit;
-    }
-    // normalise center
-    xc = psCI->xc;
-    yc = psCI->yc;
-    // allocate
-    if (nambeg&&im)
-        imv = (unsigned char*)malloc(xs*ys * 3);
-    projR_b = (int*)buf;
-    projL_b = projR_b + R;
-    medline = (unsigned char*)(projL_b + R);
-    projtmpbuf = medline + xs;
-    //DBGL_FILE_SaveUint8Image(im,xs,xs,ys,"c:\\lalafa.bmp");
-    if (mode&IVIR_ARRPOXIR_GENPROJ)
-    {
-        // calculate left side, right side and total circular projection in ring
-        //      res = IPL_PROJ_FindHoughDonatorProjection5(
-        res = IPL_PROJ_FindHoughDonatorProjection7(projR_b, projL_b, im, xs, ys, xc, yc, r, &R, 0, projtmpbuf, &szp);
-        if (res != ERROR_OK)
-            goto IVIR_PrPu_exit;
-        if (mode&IVIR_ARRPOXIR_PRPRPR)
-        {
-            IVIR_ProjPreProcess(projR_b, R);
-            IVIR_ProjPreProcess(projL_b, R);
-        }
-        res = IPL_HIST_CalcMedianInLine(medline, im, xs, ys, yc, BLUR_HIST_WND);
-        if (res != ERROR_OK)
-            goto IVIR_PrPu_exit;
-    }
-    if (!(mode&IVIR_ARRPOXIR_USEPROJ))
-        goto IVIR_PrPu_exit;
-    // list maxima
-    nMaxL = ownIVIR_ListMaxs(anMaxsL, projL_b, r, R);
-    nMaxR = ownIVIR_ListMaxs(anMaxsR, projR_b, r, R);
-    // 
-    casechar = 0;
-    if (mode&IVIR_ARRPOXIR_LEFEYE)
-        casechar = 'L';
-    if (mode&IVIR_ARRPOXIR_RIGEYE)
-        casechar = 'R';
-    ownIVIR_SelectPupir(
-        (char*)(&casechar), &Xpl, &Xpr, &(psPI->q1), &Xil, &Xir, &(psII->q1),
-        projR_b, anMaxsR, nMaxR, projL_b, anMaxsL, nMaxL, R, im, xs, ys, xc, yc, mode,
-        br_size, br_spread);
-    if (imv)
-    {
-        char nama[FILENAME_MAX];
-        DBGL_PUMP_Make3Bpp(imv, xs * 3, im, xs, xs, ys);
-        // center, search bound, true pupil, true iris
-        DBGL_DRAW_CircleInRGB(imv, xs * 3, xs, ys, xc, yc, 10, 0x00ff00);
-        DBGL_DRAW_CircleInRGB(imv, xs * 3, xs, ys, xc, yc, R, 0x00ff00);
-        DBGL_DRAW_CircleInRGB(imv, xs * 3, xs, ys, psPI->xc, psPI->yc, psPI->r, 0x003f00);
-        DBGL_DRAW_CircleInRGB(imv, xs * 3, xs, ys, psII->xc, psII->yc, psII->r, 0x003f00);
-        // detected pupil, detected iris
-        DBGL_DRAW_CircleInRGB(imv, xs * 3, xs, ys, xc + (Xpr - Xpl) / 2, yc, (Xpr + Xpl) / 2, 0xff0000);
-        DBGL_DRAW_CircleInRGB(imv, xs * 3, xs, ys, xc + (Xir - Xil) / 2, yc, (Xir + Xil) / 2, 0xff7f00);
-        // histograms with maxima and principal maximum
-        DBGL_DRAW_HistogramInRGBext(imv, R, 100, xs * 3, projL_b, R, 1);
-        DBGL_DRAW_HistogramInRGBext(imv + (xs - R) * 3, R, 100, xs * 3, projR_b, R, 1);
-        DBGL_DRAW_StrobesInRGB(imv, R, 100, xs * 3, projL_b, R, anMaxsL_, nMaxL * 2 + 1, 0xff0000);
-        DBGL_DRAW_StrobesInRGB(imv + (xs - R) * 3, R, 100, xs * 3, projR_b, R, anMaxsR_, nMaxR * 2 + 1, 0xff0000);
-        DBGL_DRAW_HistogramInRGBext_uchar(imv + xs*(ys - 50) * 3, xs, 50, xs * 3, medline, xs, 1);
-        if (Xpl >= 0)
-            anMaxsL[0] = Xpl;
-        if (Xil >= 0)
-            anMaxsL[(Xpl >= 0)] = Xil;
-        if (Xpr >= 0)
-            anMaxsR[0] = Xpr;
-        if (Xir >= 0)
-            anMaxsR[(Xpr >= 0)] = Xir;
-        DBGL_DRAW_StrobesInRGB(imv, R, 100, xs * 3, projL_b, R, anMaxsL, (Xpl >= 0) + (Xil >= 0), 0x0000ff);
-        DBGL_DRAW_StrobesInRGB(imv + (xs - R) * 3, R, 100, xs * 3, projR_b, R, anMaxsR, (Xpr >= 0) + (Xir >= 0), 0x0000ff);
-        // text report
-        sprintf(nama, "%c %d", (char)casechar, psII->q2);
-        DBGL_TYPE_TextInRGB(imv, xs, ys, nama, 0, ys / 2, 0xff00ff, -1);
-        sprintf(nama, "%s_%02x%s.bmp", nambeg, casechar & 0xff, (psII->q2 <= 10) ? "good" : "bad");
-        DBGL_FILE_SaveRGB8Image(imv, xs, xs, ys, nama);
-        free(imv);
-    }
-    if ((Xpr >= 0) && (Xpl >= 0))
-    {
-        psPI->xc = xc + (Xpr - Xpl) / 2;
-        psPI->yc = yc;
-        psPI->r = (Xpr + Xpl) / 2;
-    }
-    else
-        psPI->xc = psPI->yc = psPI->r = -1;
-    if ((Xir >= 0) && (Xil >= 0))
-    {
-        psII->xc = xc + (Xir - Xil) / 2;
-        psII->yc = yc;
-        psII->r = (Xir + Xil) / 2;
-    }
-    else
-        psII->xc = psII->yc = psII->r = -1;
-    psII->q2 = casechar;
-IVIR_PrPu_exit:;
-    if (anMaxsR_)
-        free(anMaxsR_);
-    return res;
-}
-*/
-
 #define __FILENUM__ 9 // __FILENUM__TAG9
 #define BLUR_HIST_WND 4
 
@@ -1729,6 +1711,595 @@ RESULT_CODE IPL_PROJ_FindHoughDonatorProjection5_Mask(
     pnProjLN_b[0] = pnProjLN_b[1];
     return ERROR_OK;
 }
+
+static RESULT_CODE ownIVIR_SelectPupir(
+    char* casechar,   // OUT: character for diagnose
+    int* pXpl,
+    int* pXpr,
+    int* pQp,
+    int* pXil,
+    int* pXir,
+    int* pQi,
+    const int* projR,
+    const int* anMaxsR,
+    int nMaxR,
+    const int* projL,
+    const int* anMaxsL,
+    int nMaxL,
+    int projlen,
+    const unsigned char* im,
+    int xs,
+    int ys,
+    int xc,
+    int yc,
+    int mode,
+    int br_size,
+    int br_spread)
+{
+    int Xpl, Xpr, Xil, Xir, i, j, k, l, rp, ri, Nr, Nl;
+    int Qs, Qb, Qd, Qv, Q, max3r, max3l, zs, maxXpl, maxXpr, maxXil, maxXir;
+    int valXpl, valXpr, valXil, valXir, PosMaxR, PosMaxL, isLeft = 0, isRight = 0;
+    SBazRadHyp* psbrh = NULL;
+    int nbrh_used = 0, nbrh_alloced = 0;
+
+    // set side information
+    if (*casechar == 'L')
+        isLeft = 1;
+    if (*casechar == 'R')
+        isRight = 1;
+    zs = (xs < ys) ? xs : ys;
+    // default - not found
+    *pXpl = -1;
+    *pXpr = -1;
+    *pXil = -1;
+    *pXir = -1;
+    *casechar = '-';
+    *pQp = *pQi = -1;
+    // init positions
+    maxXpl = maxXpr = maxXil = maxXir = -1;
+    if ((nMaxR < 1) || (nMaxL < 1))
+    { // no peaks found at least at one side (virtually impossible)
+        *casechar = 'N';
+        goto quita;
+    }
+    // find position of max in left and right
+    PosMaxR = anMaxsR[0];
+    for (i = 1; i < nMaxR; i++)
+        if (projR[PosMaxR] < projR[anMaxsR[2 * i]])
+            PosMaxR = anMaxsR[2 * i];
+    PosMaxL = anMaxsL[0];
+    for (i = 1; i < nMaxL; i++)
+        if (projL[PosMaxL] < projL[anMaxsL[2 * i]])
+            PosMaxL = anMaxsL[2 * i];
+    if ((nMaxR < 2) || (nMaxL < 2))
+        // only one peak found (very low probability of this)
+        goto quita;
+    // calculate sum of maxima
+    //    for (Qs=i=0;i<nMaxR;i++)
+    //    Qs += projR[anMaxsR[i*2]];
+    //Qs /= nMaxR;
+    for (Qv = i = 0; i < nMaxR - 1; i++)
+        Qv += projR[anMaxsR[i * 2 + 1]];
+    Qv /= (nMaxR - 1);
+    if (2 * Qv > projR[PosMaxR])
+    {
+        *casechar = 'X';
+        goto quita;
+    }
+    
+    for (Qv = i = 0; i < nMaxL - 1; i++)
+        Qv += projL[anMaxsL[i * 2 + 1]];
+    Qv /= (nMaxL - 1);
+    if (2 * Qv > projL[PosMaxL])
+    {
+        *casechar = 'X';
+        goto quita;
+    }
+    // two or more peaks in each side
+    for (i = 0; i < nMaxR - 1; i++)
+    {
+        Xpr = anMaxsR[2 * i];
+        for (j = i + 1; j < nMaxR; j++)
+        {
+            Xir = anMaxsR[2 * j];
+            for (k = 0; k < nMaxL - 1; k++)
+            {
+                Xpl = anMaxsL[2 * k];
+                for (l = k + 1; l < nMaxL; l++)
+                {
+                    Xil = anMaxsL[2 * l];
+                    // use side information
+                    if (isRight && (!(Xir - Xpr < Xil - Xpl)))
+                        continue;
+                    if (isLeft && (!(Xir - Xpr > Xil - Xpl)))
+                        continue;
+                    // use predefinitions
+                    if (br_size > 0)
+                        if ((Xil + Xir < 2 * (br_size - br_spread)) || (Xil + Xir > 2 * (br_size + br_spread)))
+                            continue;
+                    // at least one of maxima should be sufficiently big
+                    if (((projL[PosMaxL] > 2 * projL[Xpl]) && (projL[PosMaxL] > 4 * projL[Xil])) ||
+                        ((projR[PosMaxR] > 2 * projR[Xpr]) && (projR[PosMaxR] > 4 * projR[Xir])))
+                        continue;
+                    rp = (Xpl + Xpr) / 2;
+                    ri = (Xil + Xir) / 2;
+                    // filters
+                    if (rp * 7 < ri)  // mia120427
+                        continue;   // pupil should be at least 1/7 of iris
+                    if (rp * 4 > ri * 3)
+                        continue;   // pupil should be at most 3/4 of iris
+                    if ((2 * (Xil - Xpl) < (Xir - Xpr)) || (2 * (Xir - Xpr) < (Xil - Xpl)))
+                        continue;   // iris sides should not differ strongly
+                    if ((ri < zs / 10) || (ri > zs / 2) || (rp < 5) || (rp > zs / 3))
+                        continue;   // reject too big or too small eyes relative to image size
+                                    // calculate peak height ratios
+                    valXpl = projL[Xpl];
+                    valXpr = projR[Xpr];
+                    valXil = projL[Xil];
+                    valXir = projR[Xir];
+                    //== qualities
+                    // - pupil/iris decentration
+                    if (Xir - Xpr < Xil - Xpl)
+                        Qd = 100 * (Xir - Xpr) / (Xil - Xpl);
+                    else
+                        Qd = 100 * (Xil - Xpl) / (Xir - Xpr);
+                    if (Qd < 55)
+                        Qd = 0;
+                    else
+                        if (Qd < 67)
+                            Qd = (Qd - 55)*(100 - 0) / (67 - 55) + 0;
+                        else
+                            Qd = 100;
+                    // - center/iris decentration
+                    Qb = 50 * (Xir - Xil) / (Xil + Xir);
+                    if (Qb < 0)
+                        Qb = -Qb;
+                    // - pupil/iris size
+                    Qs = 100 * (Xpl + Xpr) / (Xil + Xir);
+                    if (Qs < 20)
+                        Qs = (Qs - 14)*(100 - 50) / (20 - 14) + 50;
+                    else
+                        if (Qs < 70)
+                            Qs = 100;
+                        else
+                            Qs = (Qs - 70)*(50 - 100) / (75 - 70) + 100;
+                    
+                    Qb = 100 - Qb;
+                    // -value
+                    Qv = 50 * (valXpr + valXpl + valXir + valXil) / (projL[PosMaxL] + projR[PosMaxR]);
+                    //            Q = Qv*Qd*Qb/100+1;
+                    Q = Qv*Qd*Qb*Qs / 10000 + 1;
+                    if (nbrh_used == nbrh_alloced)
+                        psbrh = (SBazRadHyp*)realloc(psbrh, (nbrh_alloced += 1024) * sizeof(psbrh[0]));
+                    psbrh[nbrh_used].q = Q;
+                    psbrh[nbrh_used].xpl = Xpl;
+                    psbrh[nbrh_used].xpr = Xpr;
+                    psbrh[nbrh_used].xil = Xil;
+                    psbrh[nbrh_used].xir = Xir;
+                    psbrh[nbrh_used].vpl = valXpl;
+                    psbrh[nbrh_used].vpr = valXpr;
+                    psbrh[nbrh_used].vil = valXil;
+                    psbrh[nbrh_used].vir = valXir;
+                    psbrh[nbrh_used].casechar = '0';
+                    nbrh_used++;
+                }
+            }
+        }
+    }
+    //bongo:;
+    // hypotheses are enumerated. Now choose. 
+    if (!nbrh_used)
+        // no hypothesis at all - nothing found
+        goto quita;
+    if (nbrh_used == 1)
+    { // only one single hypothesis 
+        *casechar = 's';//psbrh[0].casechar+4;
+        *pXpl = psbrh[0].xpl;
+        *pXpr = psbrh[0].xpr;
+        *pXil = psbrh[0].xil;
+        *pXir = psbrh[0].xir;
+        *pQp = *pQi = 50;
+        goto quita;
+    }
+    qsort(psbrh, nbrh_used, sizeof(psbrh[0]), ownIVIR_sortSBRH);
+    // calc ratio of pupil and iris peak heights
+    Nr = psbrh[0].vpr * 1024 / (psbrh[0].vir + 1);
+    Nl = psbrh[0].vpl * 1024 / (psbrh[0].vil + 1);
+    if ((Nr > 1024 / 3) && (Nr < 1024 * 3) && (Nl > 1024 / 3) && (Nl < 1024 * 3) &&
+        (1000 * psbrh[1].q <= 900 * psbrh[0].q))
+    { // almost guarantied
+        *casechar = psbrh[0].casechar;
+        *pXpl = psbrh[0].xpl;
+        *pXpr = psbrh[0].xpr;
+        *pXil = psbrh[0].xil;
+        *pXir = psbrh[0].xir;
+        Q = 100;
+        *pQp = *pQi = Q;
+        goto quita;
+    }
+    if ((Nr > 800) && (Nr < 1311) && (Nl > 800) && (Nl < 1311))
+    { // almost guarantied - very good pupil and iris
+        *casechar = psbrh[0].casechar + 1;
+        *pXpl = psbrh[0].xpl;
+        *pXpr = psbrh[0].xpr;
+        *pXil = psbrh[0].xil;
+        *pXir = psbrh[0].xir;
+        Q = 100;
+        *pQp = *pQi = Q;
+        goto quita;
+    }
+    if ((Nr > 1024 / 8) && (Nr < 1024 * 8) && (Nl > 1024 / 8) && (Nl < 1024 * 8) &&
+        (1000 * psbrh[1].q <= 915 * psbrh[0].q))
+    { // bit worse
+        *casechar = psbrh[0].casechar + 2;
+        *pXpl = psbrh[0].xpl;
+        *pXpr = psbrh[0].xpr;
+        *pXil = psbrh[0].xil;
+        *pXir = psbrh[0].xir;
+        Q = 95;
+        *pQp = *pQi = Q;
+        goto quita;
+    }
+    if ((Nr > 1024 / 2) && (Nr < 1024 * 2) && (Nl > 1024 / 2) && (Nl < 1024 * 2) &&
+        (1000 * psbrh[1].q <= 930 * psbrh[0].q))
+    { // worse
+        *casechar = psbrh[0].casechar + 3;
+        *pXpl = psbrh[0].xpl;
+        *pXpr = psbrh[0].xpr;
+        *pXil = psbrh[0].xil;
+        *pXir = psbrh[0].xir;
+        Q = 90;
+        *pQp = *pQi = Q;
+        goto quita;
+    }
+    //    if ((Nr>1024/4)&&(Nr<1024*4)&&(Nl>1024/4)&&(Nl<1024*4)&&
+    //      (1000*psbrh[1].q<=930*psbrh[0].q))
+    if ((Nr > 1024 / 2) && (Nr < 1024 * 2) && (Nl > 1024 / 2) && (Nl < 1024 * 2))
+    { // more worse
+        *casechar = psbrh[0].casechar + 4;
+        *pXpl = psbrh[0].xpl;
+        *pXpr = psbrh[0].xpr;
+        *pXil = psbrh[0].xil;
+        *pXir = psbrh[0].xir;
+        Q = 85;
+        *pQp = *pQi = Q;
+        goto quita;
+    }
+    if ((Nr > 1024 / 3) && (Nr < 1024 * 3) && (Nl > 1024 / 3) && (Nl < 1024 * 3) &&
+        ((psbrh[1].xpl == psbrh[0].xpl) && (psbrh[1].xpr == psbrh[0].xpr) &&
+        ((psbrh[1].xil == psbrh[0].xil) || (psbrh[1].xir == psbrh[0].xir))))
+    { // max and submax pupils match
+        *casechar = 'A';
+        *pXpl = psbrh[0].xpl;
+        *pXpr = psbrh[0].xpr;
+        Q = 75;
+        *pQp = Q;
+        *pQi = 0;
+        goto quita;
+    }
+    if ((Nr > 1024 / 7) && (Nr < 1024 * 7) && (Nl > 1024 / 7) && (Nl < 1024 * 7) &&
+        ((psbrh[1].xil == psbrh[0].xil) && (psbrh[1].xir == psbrh[0].xir) &&
+        ((psbrh[1].xpl == psbrh[0].xpl) || (psbrh[1].xpr == psbrh[0].xpr))))
+    { // max and submax irises match
+        *casechar = 'B';
+        *pXil = psbrh[0].xil;
+        *pXir = psbrh[0].xir;
+        Q = 80;
+        *pQi = Q;
+        *pQp = 0;
+        goto quita;
+    }
+    // just make a silly guess
+    ownIVIR_GetMaxSubMax(&maxXpl, &maxXil, projL, anMaxsL, nMaxL, &max3l);
+    ownIVIR_GetMaxSubMax(&maxXpr, &maxXir, projR, anMaxsR, nMaxR, &max3r);
+    if (maxXpl < 0)
+        maxXpl = 0;
+    if (maxXpr < 0)
+        maxXpr = 0;
+    if ((ownIVIR_difil(anMaxsL[2 * maxXil], anMaxsR[2 * maxXir]) < 150) &&
+        (3 * projL[anMaxsL[2 * maxXil]] > 2 * projL[PosMaxL]) &&
+        (3 * projR[anMaxsR[2 * maxXir]] > 2 * projR[PosMaxR]))
+    { // second maxima positions collimate, both maxima values big => iris
+        if (anMaxsL[2 * maxXil] + anMaxsR[2 * maxXir] > 75 * 2)
+        {
+            *casechar = 'I';
+            *pXil = anMaxsL[2 * maxXil];
+            *pXir = anMaxsR[2 * maxXir];
+            Q = (mode&IVIR_ARRPOXIR_PRPRPR) ? 45 : 83;
+            *pQi = Q;
+            *pQp = 0;
+        }
+        else
+        {
+            *casechar = 'J';
+            *pXpl = anMaxsL[2 * maxXil];
+            *pXpr = anMaxsR[2 * maxXir];
+            //      Q = 100-400*submaxQ/maxQ;
+            //    if (Q<=0)
+            Q = (mode&IVIR_ARRPOXIR_PRPRPR) ? 10 : 22;
+            *pQi = 0;
+            *pQp = Q;
+        }
+        goto quita;
+    }
+    if ((ownIVIR_difil(anMaxsL[2 * maxXpl], anMaxsR[2 * maxXpr]) < 150) &&
+        (4 * projL[anMaxsL[2 * maxXpl]] >= 2 * projL[PosMaxL]) &&
+        (4 * projR[anMaxsR[2 * maxXpr]] >= 2 * projR[PosMaxR]))
+    { // first maxima positions collimate, both maxima values big =>
+      // this is one circle, but pupil or iris?
+        int inL, outL, inR, outR, HL, HR;
+
+        for (inL = i = 0; i < maxXpl; i++)
+            inL += projL[anMaxsL[i * 2]];
+        for (inR = i = 0; i < maxXpr; i++)
+            inR += projR[anMaxsR[i * 2]];
+        for (outL = 0, i = maxXpl + 1; i < nMaxL; i++)
+            outL += projL[anMaxsL[i * 2]];
+        for (outR = 0, i = maxXpr + 1; i < nMaxR; i++)
+            outR += projR[anMaxsR[i * 2]];
+        HL = projL[anMaxsL[maxXpl * 2]];
+        HR = projR[anMaxsR[maxXpr * 2]];
+        if ((4 * (outL + outR) <= 5 * (HL + HR)) && (inR + inL >= (HL + HR) / 5))
+            //      if (0)
+        {
+            *casechar = 'X';
+            *pXil = anMaxsL[2 * maxXpl];
+            *pXir = anMaxsR[2 * maxXpr];
+            Q = 45;
+            *pQi = Q;
+            *pQp = 0;
+        }
+        else
+        { // sum of maxima inside is too small, or outsize too big => pupil
+            *pXpl = anMaxsL[2 * maxXpl] - 2;
+            *pXpr = anMaxsR[2 * maxXpr] - 2;
+            if (4 * (outL + outR) <= 5 * (HL + HR))
+            {
+                *casechar = 'Z';
+                Q = (mode&IVIR_ARRPOXIR_PRPRPR) ? 55 : 70;
+            }
+            else
+            {
+                *casechar = 'z';
+                Q = (mode&IVIR_ARRPOXIR_PRPRPR) ? 50 : 25;
+            }
+            *pQp = Q;
+            *pQi = 0;
+        }
+        goto quita;
+    }
+    if ((ownIVIR_difil(anMaxsL[2 * maxXpl], anMaxsR[2 * maxXir]) < 100) &&
+        (3 * projL[anMaxsL[2 * maxXpl]] > 2 * projL[PosMaxL]) &&
+        (3 * projR[anMaxsR[2 * maxXir]] > 2 * projR[PosMaxR]))
+    { // consider as iris
+        j = anMaxsL[2 * maxXpl];
+        i = anMaxsR[2 * maxXir];
+        // !!! size hack - decision depends on image size !!!
+        if (((i < projlen / 4) && (j < projlen / 4)) || (i + j < 75))
+        {
+            Q = (mode&IVIR_ARRPOXIR_PRPRPR) ? 35 : 20;
+            *casechar = 'U';
+            *pXpr = i - 2;
+            *pXpl = j - 2;
+            *pQp = Q;
+            *pQi = 0;
+        }
+        else
+        {
+            Q = (mode&IVIR_ARRPOXIR_PRPRPR) ? 30 : 20;
+            *casechar = 'u';
+            *pXir = i;
+            *pXil = j;
+            *pQi = Q;
+            *pQp = 0;
+        }
+        goto quita;
+    }
+    if ((ownIVIR_difil(anMaxsL[2 * maxXil], anMaxsR[2 * maxXpr]) < 100) &&
+        (3 * projL[anMaxsL[2 * maxXil]] > 2 * projL[PosMaxL]) &&
+        (3 * projR[anMaxsR[2 * maxXpr]] > 2 * projR[PosMaxR]))
+    { // consider as iris
+        j = anMaxsL[2 * maxXil];
+        i = anMaxsR[2 * maxXpr];
+        // !!! size hack - decision depends on image size !!!
+        if ((i < projlen / 4) && (j < projlen / 4))
+        {
+            Q = (mode&IVIR_ARRPOXIR_PRPRPR) ? 40 : 10;
+            *casechar = 'V';
+            *pXpr = i - 2;
+            *pXpl = j - 2;
+            *pQp = Q;
+            *pQi = 0;
+        }
+        else
+        {
+            Q = (mode&IVIR_ARRPOXIR_PRPRPR) ? 25 : 10;
+            *casechar = 'v';
+            *pXir = i;
+            *pXil = j;
+            *pQi = Q;
+            *pQp = 0;
+        }
+        goto quita;
+    }
+    i = anMaxsR[2 * ((projR[anMaxsR[2 * maxXpr]] > projR[anMaxsR[2 * maxXir]]) ? maxXpr : maxXir)];
+    j = anMaxsL[2 * ((projL[anMaxsL[2 * maxXpl]] > projL[anMaxsL[2 * maxXil]]) ? maxXpl : maxXil)];
+    // !!! size hack - decision depends on image size !!!
+    if ((i < 2 * 3 * projlen / (5 * 4)) && (j < 2 * 3 * projlen / (5 * 4)))
+    {
+        *casechar = 'g';
+        *pXpr = i - 2;
+        *pXpl = j - 2;
+        *pQp = (mode&IVIR_ARRPOXIR_PRPRPR) ? 20 : 15;
+        *pQi = 0;
+    }
+    else
+    {
+        *casechar = 'G';
+        *pXir = i;
+        *pXil = j;
+        *pQi = (mode&IVIR_ARRPOXIR_PRPRPR) ? 15 : 2;
+        *pQp = 0;
+    }
+quita:
+    if ((*casechar >= '0') && (*casechar <= '4'))
+    { // try a correction
+        i = ownIVIR_CorrectBazradHyp(0, psbrh, nbrh_used,
+            *pXpl, *pXpr, *pXil, *pXir, projR, anMaxsR, nMaxR, projL, anMaxsL, nMaxL, projlen);
+        j = ownIVIR_CorrectBazradHyp(1, psbrh, nbrh_used,
+            *pXpl, *pXpr, *pXil, *pXir, projR, anMaxsR, nMaxR, projL, anMaxsL, nMaxL, projlen);
+        if ((i > 0) && (j > 0))
+            *casechar = '#';
+        if ((i > 0) && (j <= 0))
+        {
+            *pXir = i;
+            *casechar = '@';
+        }
+        if ((i <= 0) && (j > 0))
+        {
+            *pXil = j;
+            *casechar = '@';
+        }
+    }
+    if (psbrh)
+        free(psbrh);
+    return ERROR_OK;
+}
+
+
+// detect approximate pupil and iris by projection method
+RESULT_CODE IVIR_PrPu(
+    SPupilInfo* psPI,         // OUT: pupil data
+    SIrisInfo* psII,          // OUT: iris data
+    const SCenterInfo* psCI,  // IN:  center data
+    const unsigned char* im,  // IN:  source image
+    int xs,                   // IN:  image size
+    int ys,                   //
+    int mode, // mask: 1- draw projs to buf, 2- use projs from buf
+    int br_size,    // predefined iris size (-1 - not predefined)
+    int br_spread,  // predefined spread of iris size (-1 - not predefined)
+    int* projR,
+    int* projL,
+    const char* nambeg)       // used for debug, set to NULL
+{
+    RESULT_CODE res = ERROR_OK;
+    int sz, r, R, szp, xc, yc, Xpl, Xpr, Xil, Xir, casechar;
+    void* projtmpbuf;
+    int *anMaxsR_ = NULL, *anMaxsL_ = NULL, nMaxR, nMaxL;
+    int *anMaxsR, *anMaxsL;
+    
+    // get radii of analyzed ring
+    r = 10;
+    //R = xs/2-4;
+    R = xs / 2;
+    sz = 0;
+    // evaluate radius
+    //    res = IPL_PROJ_FindHoughDonatorProjection5(
+    
+    // check more args
+    if ((psPI == NULL) || (psII == NULL) || (psCI == NULL))
+    {
+        res = ERROR_NULL_POINTER;
+        return res;
+    }
+    anMaxsR_ = (int*)malloc(((xs + 2) * 2) * sizeof(anMaxsR_[0]));
+    anMaxsL_ = anMaxsR_ + xs + 2;
+    anMaxsR = anMaxsR_ + 1;
+    anMaxsL = anMaxsL_ + 1;
+    // normalise center
+    xc = psCI->xc;
+    yc = psCI->yc;
+    if (mode&IVIR_ARRPOXIR_PRPRPR)
+    {
+        IVIR_ProjPreProcess(projR, R);
+        IVIR_ProjPreProcess(projL, R);
+    }
+    // uint8* medline = (uint8*)malloc(R * sizeof(uint8));
+    // printf("PrPu: Calc median\n");
+//     res = IPL_HIST_CalcMedianInLine(medline, im, xs, ys, yc, BLUR_HIST_WND);
+//     // printf("PrPu: Calc median\n");
+//     if (res != ERROR_OK)
+//     {
+//         free(medline);
+//         free(anMaxsR_);
+//         return res;
+//     }
+    
+    // list maxima
+    nMaxL = ownIVIR_ListMaxs(anMaxsL, projL, r, R);
+    nMaxR = ownIVIR_ListMaxs(anMaxsR, projR, r, R);
+    // 
+    casechar = 0;
+    if (mode&IVIR_ARRPOXIR_LEFEYE)
+        casechar = 'L';
+    if (mode&IVIR_ARRPOXIR_RIGEYE)
+        casechar = 'R';
+    ownIVIR_SelectPupir(
+        (char*)(&casechar), &Xpl, &Xpr, &(psPI->q1), &Xil, &Xir, &(psII->q1),
+        projR, anMaxsR, nMaxR, projL, anMaxsL, nMaxL, R, im, xs, ys, xc, yc, mode,
+        br_size, br_spread);
+    // printf("PrPu: Select PupIr: %d %d %c\n", Xpr, Xpl, casechar);
+
+    /*
+    if (imv)
+    {
+        char nama[FILENAME_MAX];
+        DBGL_PUMP_Make3Bpp(imv, xs * 3, im, xs, xs, ys);
+        // center, search bound, true pupil, true iris
+        DBGL_DRAW_CircleInRGB(imv, xs * 3, xs, ys, xc, yc, 10, 0x00ff00);
+        DBGL_DRAW_CircleInRGB(imv, xs * 3, xs, ys, xc, yc, R, 0x00ff00);
+        DBGL_DRAW_CircleInRGB(imv, xs * 3, xs, ys, psPI->xc, psPI->yc, psPI->r, 0x003f00);
+        DBGL_DRAW_CircleInRGB(imv, xs * 3, xs, ys, psII->xc, psII->yc, psII->r, 0x003f00);
+        // detected pupil, detected iris
+        DBGL_DRAW_CircleInRGB(imv, xs * 3, xs, ys, xc + (Xpr - Xpl) / 2, yc, (Xpr + Xpl) / 2, 0xff0000);
+        DBGL_DRAW_CircleInRGB(imv, xs * 3, xs, ys, xc + (Xir - Xil) / 2, yc, (Xir + Xil) / 2, 0xff7f00);
+        // histograms with maxima and principal maximum
+        DBGL_DRAW_HistogramInRGBext(imv, R, 100, xs * 3, projL_b, R, 1);
+        DBGL_DRAW_HistogramInRGBext(imv + (xs - R) * 3, R, 100, xs * 3, projR_b, R, 1);
+        DBGL_DRAW_StrobesInRGB(imv, R, 100, xs * 3, projL_b, R, anMaxsL_, nMaxL * 2 + 1, 0xff0000);
+        DBGL_DRAW_StrobesInRGB(imv + (xs - R) * 3, R, 100, xs * 3, projR_b, R, anMaxsR_, nMaxR * 2 + 1, 0xff0000);
+        DBGL_DRAW_HistogramInRGBext_uchar(imv + xs*(ys - 50) * 3, xs, 50, xs * 3, medline, xs, 1);
+        if (Xpl >= 0)
+            anMaxsL[0] = Xpl;
+        if (Xil >= 0)
+            anMaxsL[(Xpl >= 0)] = Xil;
+        if (Xpr >= 0)
+            anMaxsR[0] = Xpr;
+        if (Xir >= 0)
+            anMaxsR[(Xpr >= 0)] = Xir;
+        DBGL_DRAW_StrobesInRGB(imv, R, 100, xs * 3, projL_b, R, anMaxsL, (Xpl >= 0) + (Xil >= 0), 0x0000ff);
+        DBGL_DRAW_StrobesInRGB(imv + (xs - R) * 3, R, 100, xs * 3, projR_b, R, anMaxsR, (Xpr >= 0) + (Xir >= 0), 0x0000ff);
+        // text report
+        sprintf(nama, "%c %d", (char)casechar, psII->q2);
+        DBGL_TYPE_TextInRGB(imv, xs, ys, nama, 0, ys / 2, 0xff00ff, -1);
+        sprintf(nama, "%s_%02x%s.bmp", nambeg, casechar & 0xff, (psII->q2 <= 10) ? "good" : "bad");
+        DBGL_FILE_SaveRGB8Image(imv, xs, xs, ys, nama);
+        free(imv);
+    }
+    */
+    if ((Xpr >= 0) && (Xpl >= 0))
+    {
+        psPI->xc = xc + (Xpr - Xpl) / 2;
+        psPI->yc = yc;
+        psPI->r = (Xpr + Xpl) / 2;
+    }
+    else
+        psPI->xc = psPI->yc = psPI->r = -1;
+    // printf("PrPu: Pupil data: %d %d %d\n", psPI->xc, psPI->yc, psPI->r);
+    if ((Xir >= 0) && (Xil >= 0))
+    {
+        psII->xc = xc + (Xir - Xil) / 2;
+        psII->yc = yc;
+        psII->r = (Xir + Xil) / 2;
+    }
+    else
+        psII->xc = psII->yc = psII->r = -1;
+    // printf("PrPu: Iris data: %d %d %d\n", psII->xc, psII->yc, psII->r);
+    psII->q2 = casechar;
+    free(anMaxsR_);
+    return res;
+}
+
 
 /*
 static RESULT_CODE ownIVIR_SelectPupirRE(

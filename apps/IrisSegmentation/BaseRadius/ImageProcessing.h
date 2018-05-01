@@ -4,12 +4,6 @@
 
 #include "GlobalParams.h"
 
-#define MIA_abs(x) (((x)>0)?(x):(-(x)))
-#define MIA_bound(x,a,b) (((x)<(a))?(a):(((x)>(b))?(b):(x)))
-#define MIA_roundf(x) ((int32)(((x)>=0)?((x)+0.5f):((x)-0.5f)));
-#define MIA_max(a,b) (((a) > (b)) ? (a) : (b))
-#define MIA_min(a,b) (((a) < (b)) ? (a) : (b))
-
 #define fPI         (3.141593f)
 #define dPI         (3.14159265358979323846)
 #define masekPI     (3.14159265358979)

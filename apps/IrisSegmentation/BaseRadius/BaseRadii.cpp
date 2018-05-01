@@ -10,176 +10,97 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <opencv2\opencv.hpp>
 
 #include "GlobalParams.h"
 #include "BaseRadii.h"
 
 
-
-
-RESULT_CODE getMarkupData(SMarkup* cMarkupData, FILE* markupFile)
+RESULT_CODE myDetectBaseRadii(
+    SPupilInfo* psPI,         // OUT: pupil data
+    SIrisInfo* psII,          // OUT: iris data
+    SCenterInfo* psCI,  // IN:  center data
+    unsigned char* im,  // IN:  source image
+    int W,                   // IN:  image size
+    int H,                   //
+    int* kernel3x3,           // edge detection kernel: kernel3x3[] = { -3, 0, 3, -10, 0, 10, -3, 0, 3 };
+    int angMin,               // minimal projection estimation angle
+    int angMax,               // maximal projection estimation angle
+    int minR,                 // minimal radius
+    int maxR,                 // maximal radius
+    int thrHoriz,             // threshold for horizontal derivative
+    float thrDot,             // threshold for circular shape: 0.8 - 1.0
+    int* pProjR,              // circular projection - right side nums
+    int* pProjL               // circular projection - left side nums
+)
 {
-    int i;
-    char* tmp = (char*)malloc(2 * MAX_FILENAME);
-    if (!fgets(tmp, MAX_FILENAME, markupFile))
+    int res = ERROR_OK;
+    // int maxR = MIA_min(MIA_max(MIA_min(psCI->xc, W - psCI->xc), MIA_min(psCI->yc, H - psCI->yc)), H / 2);
+
+    if ((res = FindHoughProjection(pProjR, pProjL, angMin, angMax, kernel3x3, thrHoriz,thrDot,minR,maxR, im, W, H, psCI->xc, psCI->yc)))
     {
-        fprintf(stderr, "[ERROR] getMarkupData() cannot read another line from markup file.");
-        return ERROR_WRONG_INPUT;
+        fprintf(stderr, "[ERROR]: Projection feature generation failed.\n");
+        return res;
     }
+    memset(pProjL, 0, MINIMAL_PUPIL_RADIUS * sizeof(int));
+    memset(pProjR, 0, MINIMAL_PUPIL_RADIUS * sizeof(int));
 
-    fscanf(markupFile, "%s", tmp);
-    strcpy(cMarkupData->filename, tmp);
-
-    fscanf(markupFile, "%s", tmp);
-    cMarkupData->pupil.xc = atoi(tmp);
-    cMarkupData->iris.xc = atoi(tmp);
-    fscanf(markupFile, "%s", tmp);
-    cMarkupData->pupil.yc = atoi(tmp);
-    cMarkupData->iris.yc = atoi(tmp);
-
-    if (cMarkupData->pupil.xc == 0 && cMarkupData->pupil.yc == 0)
+    int mode = IVIR_ARRPOXIR_PRPRPR | IVIR_ARRPOXIR_USEPROJ; //  IVIR_ARRPOXIR_LEFEYE | IVIR_ARRPOXIR_PRPRPR;
+    if ((res = IVIR_PrPu(
+        psPI, psII, psCI, im, W, H,
+        mode, -1, -1, pProjR, pProjL, NULL)))
     {
-        fprintf(stderr, "[ERROR] getMarkupData() null line read.");
-        return ERROR_WRONG_INPUT;
+        fprintf(stderr, "[ERROR]: base radii estimations failed.\n");
     }
-
-    // skipping unnecessary input
-    for (i = 0; i < 9; i++)
-        fscanf(markupFile, "%s", tmp);
-
-    fscanf(markupFile, "%s", tmp);
-    cMarkupData->BazRad.pu_xc = atoi(tmp);
-    fscanf(markupFile, "%s", tmp);
-    cMarkupData->BazRad.pu_yc = atoi(tmp);
-    fscanf(markupFile, "%s", tmp);
-    cMarkupData->BazRad.pu_r = atoi(tmp);
-    fscanf(markupFile, "%s", tmp);
-    cMarkupData->BazRad.pu_q = atoi(tmp);
-
-    fscanf(markupFile, "%s", tmp);
-    cMarkupData->BazRad.ir_xc = atoi(tmp);
-    fscanf(markupFile, "%s", tmp);
-    cMarkupData->BazRad.ir_yc = atoi(tmp);
-    fscanf(markupFile, "%s", tmp);
-    cMarkupData->BazRad.ir_r = atoi(tmp);
-    fscanf(markupFile, "%s", tmp);
-    cMarkupData->BazRad.ir_q = atoi(tmp);
-    free(tmp);
-    return ERROR_OK;
-}
-
-void writeProjectionFeatureEntry(FILE* featureFile, SMarkup* cMarkup, int* pProjR, int* pProjL, int maxRadius)
-{
-    // writing file name, CenX, CenY and projection length
-    fprintf(featureFile, "%s,%d,%d,%d,", cMarkup->filename, cMarkup->pupil.xc, cMarkup->pupil.yc, maxRadius);
-    //writing features
-    for (int i = 0; i < maxRadius; ++i)
-        fprintf(featureFile, "%d,", pProjR[i]);
-    for (int i = 0; i < maxRadius; ++i)
-        fprintf(featureFile, "%d,", pProjL[i]);
-    // writing targets
-    fprintf(featureFile, "%d,%d\n", cMarkup->BazRad.pu_r, cMarkup->BazRad.ir_r);
+    return res;
 }
 
 
-RESULT_CODE GenerateProjectionFeatures(char* srcFolder, char* srcMarkupFile, char* dstFile)
+int DetectBaseRadii(
+    SPupilInfo* psPI,         // OUT: pupil data
+    SIrisInfo* psII,          // OUT: iris data
+    const SCenterInfo* psCI,  // IN:  center data
+    const unsigned char* im,  // IN:  source image
+    int xs,                   // IN:  image size
+    int ys,                   //
+    int* pProjR,               // circular projection - right side nums
+    int* pProjL               // circular projection - left side nums
+                              // int mode // mask: 1- draw projs to buf, 2- use projs from buf
+)
 {
-    if (NULL == srcMarkupFile || NULL == dstFile)
+    RESULT_CODE res;
+    int outRadius = xs / 2;
+    int buflen = 0;
+
+    if ((res = IPL_PROJ_FindHoughDonatorProjection7(
+        pProjR, pProjL,
+        im, xs, ys, psCI->xc, psCI->yc,
+        MINIMAL_PUPIL_RADIUS, &outRadius, 0,// dense analysis
+        NULL, &buflen)))
     {
-        fprintf(stderr, "[ERROR] GenerateProjectionFeatures() wrong input parameters.\n");
-        return ERROR_NULL_POINTER;
+        fprintf(stderr, "[ERROR]: buffer size calculation failed.\n");
+        return res;
+    }
+    void* buf = malloc(buflen);
+    if ((res = IPL_PROJ_FindHoughDonatorProjection7(
+        pProjR, pProjL,
+        im, xs, ys, psCI->xc, psCI->yc,
+        MINIMAL_PUPIL_RADIUS, &outRadius, 0,// dense analysis
+        buf, &buflen)))
+    {
+        free(buf);
+        fprintf(stderr, "[ERROR]: projection computation fails.\n");
+        return res;
     }
 
-    FILE *markupFile = NULL, *featureFile = NULL;
-    RESULT_CODE res = 0;
-    char tmp[MAX_FILENAME];
-    
-    if ((markupFile = fopen(srcMarkupFile, "r")) == NULL)
+    int mode = IVIR_ARRPOXIR_PRPRPR; //  IVIR_ARRPOXIR_LEFEYE | IVIR_ARRPOXIR_PRPRPR;
+    if ((res = IVIR_PrPu(
+        psPI, psII, psCI, im, xs, ys,
+        mode, -1, -1, pProjR, pProjL, NULL)))
     {
-        fprintf(stderr, "[ERROR] GenerateProjectionFeatures() wrong filename for markup file.\n");
-        return ERROR_WRONG_INPUT;
+        free(buf);
+        fprintf(stderr, "[ERROR]: base radii estimations failed.\n");
+        return res;
     }
-    
-    if ((featureFile = fopen(dstFile, "w")) == NULL)
-    {
-        fprintf(stderr, "[ERROR] GenerateProjectionFeatures() wrong filename for destination feature file.\n");
-        return ERROR_WRONG_INPUT;
-    }
-
-    fgets(tmp, MAX_FILENAME, markupFile);
-    char *imagePath = (char*)malloc(MAX_FILENAME * sizeof(char));
-    
-    SMarkup cMarkupData;
-    int i = 0;
-    res = 0;
-    while((res = getMarkupData(&cMarkupData, markupFile)) == ERROR_OK)
-    {
-        memset(imagePath, 0, MAX_FILENAME * sizeof(char));
-        strcpy(imagePath, srcFolder);
-
-        // fprintf(stderr, "[ERROR]: getMarkupData markup extraction fail.\n");
-        // return ERROR_WRONG_INPUT;
-        
-        strcat(imagePath, cMarkupData.filename);
-        printf("image path %s\n", imagePath);
-        //Read the image data
-        cv::Mat srcImage = cv::imread(imagePath, CV_8U);
-        int H = srcImage.rows, W = srcImage.cols;
-        printf("Markup entry %d: %s\n", i,cMarkupData.filename);
-        printf("CenX: %d CenY: %d\n", cMarkupData.pupil.xc, cMarkupData.pupil.yc);
-
-        int *pProjR = (int*)malloc(W * sizeof(int));
-        int *pProjL = (int*)malloc(W * sizeof(int));
-        int outRadius = W / 2;
-        int buflen = 0;
-        /*RESULT_CODE IPL_PROJ_FindHoughDonatorProjection6(
-            int* pnProjRN_b,          // OUT: circular projection - right side nums
-            int* pnProjLN_b,          // OUT: circular projection - left side nums
-            const unsigned char* im,  // IN:  image
-            int xs,                   // IN:  image size
-            int ys,                   // 
-            int xc,                   // IN:  ring center
-            int yc,                   //
-            int r,                    // IN:  inner radius
-            int* pR,                  // IN/OUT: outer radius proposed/actually used
-            int nMaxRadOfDence,       // IN:  maximum radius for dense processing. 0 - dense always
-            void* buf,                // IN:  external buffer
-            int* buflen)              // IN/OUT: allocated/used bytes
-*/
-        if ((res = IPL_PROJ_FindHoughDonatorProjection6(
-            pProjR, pProjL,
-            (const uint8*)srcImage.data, W, H, cMarkupData.pupil.xc, cMarkupData.pupil.yc,
-            20, &outRadius, 0,// dense analysis
-            NULL, &buflen)))
-        {
-            fprintf(stderr, "[ERROR]: buffer size calculation failed.\n");
-            return res;
-        }
-        printf("ProjectionCalc(): buf len: %d\n", buflen);
-        void* buf = malloc(buflen);
-        if ((res = IPL_PROJ_FindHoughDonatorProjection6(
-            pProjR, pProjL,
-            (const uint8*)srcImage.data, W, H, cMarkupData.pupil.xc, cMarkupData.pupil.yc,
-            20, &outRadius, 0,// dense analysis
-            buf, &buflen)))
-        {
-            fprintf(stderr, "[ERROR]: projection computation fails.\n");
-            return res;
-        }
-        printf("ProjectionCalc(): out radius: %d", outRadius);
-        writeProjectionFeatureEntry(featureFile, &cMarkupData, pProjR, pProjL, outRadius);    
-
-            // cv::namedWindow("MarkupImage", CV_WINDOW_AUTOSIZE); //create a window with the name "MyWindow"
-            // cv::imshow("MyWindow", srcImage); //display the image which is stored in the 'img' in the "MyWindow" window
-
-            // cv::waitKey(0); //wait infinite time for a keypress
-
-            // cv::destroyWindow("MarkupImage"); //destroy the window with the name, "MyWindow"
-        printf("\n");
-        i++;
-    }
-    printf("processing result: %d\n", res);
-
+    free(buf);
     return ERROR_OK;
 }
