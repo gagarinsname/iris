@@ -43,7 +43,7 @@ typedef struct
 } SBazRadHyp;
 
 
-
+#define HOUGH_BLUR_HW 5
 RESULT_CODE FindHoughProjection(
     int* pProjR,
     int* pProjL,
@@ -51,14 +51,15 @@ RESULT_CODE FindHoughProjection(
     int angEnd,
     int* Kernel3x3,
     int thrHoriz,
-    int thrDot,
+    float thrDot,
     int minR,
     int maxR,
     unsigned char* im,
     int xs,
     int ys,
     int xc,
-    int yc)
+    int yc,
+	int blur_hw)
 {
     if (angEnd > 90 || angEnd < -90 || angBeg < -90 || angBeg > 90 || angEnd <= angBeg)
     {
@@ -94,7 +95,6 @@ RESULT_CODE FindHoughProjection(
     else
     {
         float xIntercept = -(float)yc / (kBeg + 1e-7) + xc;
-        // printf("intercept: %f\n", xIntercept);
         minY = (int)(((xIntercept < (float)xs) ? .0 : -kBeg * (xIntercept - (float)xs)) + .5f);
     }
 
@@ -103,12 +103,11 @@ RESULT_CODE FindHoughProjection(
     else
     {
         float xIntercept = (float)(ys - yc) / (kEnd + 1e-7) + xc;
-        // printf("intercept: %f\n", xIntercept);
         maxY = (int)(((xIntercept < (float)xs) ? (float)ys : (float)ys - kEnd * (xIntercept - (float)xs)) + .5f);
     }
     // sanity check
-    minY = MIA_max(0, minY);
-    maxY = MIA_min(maxY, ys);
+    minY = MIA_max(1, minY);
+    maxY = MIA_min(maxY, ys-1);
 
     // num points in circle
     int* numPoR = (int*)malloc(xs * sizeof(int));
@@ -127,39 +126,30 @@ RESULT_CODE FindHoughProjection(
     for (int y = minY + 1; y < maxY - 1; ++y)
     {
         uint8 *pImRow = im + y * xs + xc - 1;
-        uint8 *pImRowPrev = im + (y - 1) * xs + xc - 1;
-        uint8 *pImRowNext = im + (y + 1) * xs + xc - 1;
-
-        for (int x = 0; x < xs - xc - 1; ++x)
+        for (int x = 0; x < xs - xc - 2; ++x)
         {
             ++pImRow;
-            ++pImRowPrev;
-            ++pImRowNext;
 
-            int r = INTSQRT(x*x + (y - yc)*(y - yc));
-
+			int r = INTSQRT(x*x + (y - yc)*(y - yc));
             int gx =
-                Kernel3x3[0] * pImRowPrev[-1] + Kernel3x3[1] * pImRowPrev[0] + Kernel3x3[2] * pImRowPrev[1] +
-                Kernel3x3[3] * pImRow[-1] + Kernel3x3[4] * pImRow[0] + Kernel3x3[5] * pImRow[1] +
-                Kernel3x3[6] * pImRowNext[-1] + Kernel3x3[7] * pImRowNext[0] + Kernel3x3[8] * pImRowNext[1];
+                Kernel3x3[0] * pImRow[-xs-1] + Kernel3x3[1] * pImRow[-xs + 0] + Kernel3x3[2] * pImRow[-xs + 1] +
+                Kernel3x3[3] * pImRow[   -1] + Kernel3x3[4] * pImRow[      0] + Kernel3x3[5] * pImRow[      1] +
+                Kernel3x3[6] * pImRow[xs -1] + Kernel3x3[7] * pImRow[xs +  0] + Kernel3x3[8] * pImRow[xs +  1];
 
-            // std ::cout << gx << " ";
             if (gx < thrHoriz)
                 continue;
-            ++numPoR[r];
+			++numPoR[r];
             if ((float)x * kBeg <= y - yc && (float)x * kEnd >= y - yc)
             {
-                // *pImRow = 255;
                 int gy =
-                    Kernel3x3[0] * pImRowPrev[-1] + Kernel3x3[3] * pImRowPrev[0] + Kernel3x3[6] * pImRowPrev[1] +
-                    Kernel3x3[1] * pImRow[-1] + Kernel3x3[4] * pImRow[0] + Kernel3x3[7] * pImRow[1] +
-                    Kernel3x3[2] * pImRowNext[-1] + Kernel3x3[5] * pImRowNext[0] + Kernel3x3[8] * pImRowNext[1];
-                // std::cout << gy << " ";
+                    Kernel3x3[0] * pImRow[-xs-1] + Kernel3x3[3] * pImRow[-xs+0] + Kernel3x3[6] * pImRow[-xs+1] +
+                    Kernel3x3[1] * pImRow[   -1] + Kernel3x3[4] * pImRow[    0] + Kernel3x3[7] * pImRow[    1] +
+                    Kernel3x3[2] * pImRow[xs -1] + Kernel3x3[5] * pImRow[xs+ 0] + Kernel3x3[8] * pImRow[xs +1];
                 int G = INTSQRT(gx * gx + gy * gy);
-                // std::cout << G << " " << r;
-                if ((float)(gx * x + gy * (y - yc)) >= 2 * thrDot * G * r)
+                // std::cout << "Right: G = " << G << " r = " << r << " ratio: " << (float)(gx*x + gy*(y-yc)) / (G * r + 1e-10) << " " << thrDot<< std::endl;
+                if (MIA_abs((float)(gx * x + gy * (y - yc))) >= (float)(G * r) * thrDot)
                 {
-                    // std::cout << gx << " " << gy << " " << G  << " " << r << std:: endl;
+					// *pImRow = 255;
                     ++pnProjR[r];
                 }
             }
@@ -174,8 +164,7 @@ RESULT_CODE FindHoughProjection(
         minY = yc - 1;
     else
     {
-        float xIntercept = -(float)yc / (kBeg + 1e-7) + xc;
-        // printf("intercept: %f\n", xIntercept);
+		float xIntercept = -(float)yc / (kBeg + 1e-7) + xc;
         minY = (int)(((xIntercept >= 0) ? .0 : -kBeg * xIntercept + .5f));
     }
 
@@ -184,12 +173,11 @@ RESULT_CODE FindHoughProjection(
     else
     {
         float xIntercept = (float)(ys - yc) / (kEnd + 1e-7) + xc;
-        // printf("intercept: %f\n", xIntercept);
         maxY = (int)(((xIntercept >= 0) ? (float)ys : (float)ys - kEnd * xIntercept + .5f));
     }
     // sanity check
-    minY = MIA_max(0, minY);
-    maxY = MIA_min(maxY, ys);
+    minY = MIA_max(1, minY);
+    maxY = MIA_min(maxY, ys-1);
     // std::cout << "Min Y " << minY << "Max Y " << maxY << std::endl;
     for (int y = minY + 1; y < maxY - 1; ++y)
     {
@@ -210,23 +198,20 @@ RESULT_CODE FindHoughProjection(
                 Kernel3x3[0] * pImRowPrev[-1] + Kernel3x3[1] * pImRowPrev[0] + Kernel3x3[2] * pImRowPrev[1] +
                 Kernel3x3[3] * pImRow[-1] + Kernel3x3[4] * pImRow[0] + Kernel3x3[5] * pImRow[1] +
                 Kernel3x3[6] * pImRowNext[-1] + Kernel3x3[7] * pImRowNext[0] + Kernel3x3[8] * pImRowNext[1];
-            if (gx > -thrHoriz)
+            if (gx >= thrHoriz)
                 continue;
-
-            ++numPoL[r];
-
+			++numPoL[r];
             if ((float)x * kBeg <= (float)(y - yc) && (float)x * kEnd >= (float)(y - yc))
             {
-                // *pImRow = 254;
                 int gy =
                     Kernel3x3[0] * pImRowPrev[-1] + Kernel3x3[3] * pImRowPrev[0] + Kernel3x3[6] * pImRowPrev[1] +
                     Kernel3x3[1] * pImRow[-1] + Kernel3x3[4] * pImRow[0] + Kernel3x3[7] * pImRow[1] +
                     Kernel3x3[2] * pImRowNext[-1] + Kernel3x3[5] * pImRowNext[0] + Kernel3x3[8] * pImRowNext[1];
 
                 int G = INTSQRT(gx * gx + gy * gy);
-                if (gx * x + gy * (y - yc) >= 2 * thrDot * G * r)
+                if (MIA_abs((float)(gx * x + gy * (y - yc))) >= thrDot * (float)(G * r))
                 {
-                    // std::cout << r << " " << pnProjL[r] << std::endl;
+					// *pImRow = 240;
                     ++pnProjL[r];
                 }
             }
@@ -234,13 +219,11 @@ RESULT_CODE FindHoughProjection(
     }
 
     // normalize
-    for (int i = minR; i <= maxR; i++)
+    for (int i = minR; i < xs; i++)
     {
-        // std::cout << numPoR[i] << " ";
         // pnProjR[i] = (numPoR[i]) ? (int)((1024 * pnProjR[i]) / numPoR[i]) : 0;
-        pnProjR[i] = (numPoR[i]) ? (int)((1024 * pnProjR[i]) / (i)) : 0;
-        // std::cout << (float)(pnProjR[i]) / (numPoR[i] + 1e-5) << std::endl;
-        pnProjL[i] = (numPoL[i]) ? (int)((1024 * pnProjL[i]) / (i)) : 0;
+        pnProjR[i] = (numPoR[i]) ? (int)((1024 * pnProjR[i]) / numPoR[i]) : 0;
+        pnProjL[i] = (numPoL[i]) ? (int)((1024 * pnProjL[i]) / numPoL[i]) : 0;
     }
     for (int i = 0; i < minR; i++)
     {
@@ -251,18 +234,18 @@ RESULT_CODE FindHoughProjection(
     }
     // std::cout << std::endl;
     // process histogram: blur
-    IPL_HIST_Blur(numPoR_b, numPoR, maxR + 1, BLUR_HIST_WND);
-    IPL_HIST_Blur(numPoL_b, numPoL, maxR + 1, BLUR_HIST_WND);
-    IPL_HIST_Blur(pProjR, pnProjR, maxR + 1, BLUR_HIST_WND);
-    IPL_HIST_Blur(pProjL, pnProjL, maxR + 1, BLUR_HIST_WND);
+    IPL_HIST_Blur(numPoR_b, numPoR, maxR + 1, blur_hw);
+    IPL_HIST_Blur(numPoL_b, numPoL, maxR + 1, blur_hw);
+    IPL_HIST_Blur(pProjR, pnProjR, maxR + 1, blur_hw);
+    IPL_HIST_Blur(pProjL, pnProjL, maxR + 1, blur_hw);
 
     // correct for small presence
     for (int i = 1; i <= maxR; i++)
     {
-        int L = 10000 * numPoR_b[i] / (157 * (2 * BLUR_HIST_WND + 1)*i);
+        int L = 10000 * numPoR_b[i] / (157 * (2 * blur_hw + 1)*i);
         if (L < 20)
             pProjR[i] = 0;
-        L = 10000 * numPoL_b[i] / (157 * (2 * BLUR_HIST_WND + 1)*i);
+        L = 10000 * numPoL_b[i] / (157 * (2 * blur_hw + 1)*i);
         if (L < 20)
             pProjL[i] = 0;
     }

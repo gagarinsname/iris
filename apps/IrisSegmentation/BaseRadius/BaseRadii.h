@@ -29,6 +29,45 @@ typedef struct SMarkup
     char* srcMarkupFile,        // markup file for them
     char* dstFile);             // resulting feature file
 */
+
+/************************* DYNAMIC TIME WARPING STUFF *****************************/
+typedef struct sDTWInstance {
+	sPnt path;
+	float *mat;
+	int sizeL, sizeR;
+} sDTWInstance;
+
+EXTERN_DLL_EXPORT RESULT_CODE calcFullDynamicTimeWarpingWrapper(sPnt* pathDTW, int* sizePath, float* matDTW,
+	int* pDataL, int sizeL, int* pDataR, int sizeR, int nCompare, float regWeight);
+
+EXTERN_DLL_EXPORT RESULT_CODE myDynamicTimeWarpingPyramid(sPnt* pathDTW, int* sizePath, float* matDTW,
+	int* pDataL, int sizeL, int* pDataR, int sizeR, int sizeSeriesWindow, int sizeMetricWindow, int* nScales);
+
+EXTERN_DLL_EXPORT void downsampleSeries(int* dst, int dstSize, int* src, int srcSize, int factor);
+EXTERN_DLL_EXPORT void upsamplePath(sPnt* path, int* sizeP, int scaleFactor);
+
+/************************ PROJECTION PROCESSING ***********************************/
+EXTERN_DLL_EXPORT RESULT_CODE sequenceGradient(int *pGrData, int *pData, int size);
+
+
+EXTERN_DLL_EXPORT void IPL_HIST_Blur(
+	int* dst,         // OUT: blurred hist
+	const int* val,   // IN:  source hist
+	int len,          // IN:  length of the hist
+	int hw);           // IN:  half-window
+
+EXTERN_DLL_EXPORT RESULT_CODE myDynamicTimeWarping(
+	sPnt* pathDTW,				// IN/OUT: dynamic time warping path
+	float* matDTW,				// IN/OUT: dynamic time warping matrix
+	int* sizePath,				// IN/OUT: dynamic time warping path size
+	int* pDataL,
+	int sizeL,
+	int* pDataR,
+	int sizeR,
+	int sizeSeriesWindow,
+	int sizeMetricWindow
+);
+
 EXTERN_DLL_EXPORT RESULT_CODE myDetectBaseRadii(
     SPupilInfo* psPI,         // OUT: pupil data
     SIrisInfo* psII,          // OUT: iris data
@@ -44,25 +83,27 @@ EXTERN_DLL_EXPORT RESULT_CODE myDetectBaseRadii(
     int thrHoriz,             // threshold for horizontal derivative
     float thrDot,             // threshold for circular shape: 0.8 - 1.0
     int* pProjR,              // circular projection - right side nums
-    int* pProjL               // circular projection - left side nums
+    int* pProjL,              // circular projection - left side nums
+	int blurHW
 );
 
 #define BLUR_HIST_WND 4
-RESULT_CODE FindHoughProjection(
+EXTERN_DLL_EXPORT RESULT_CODE FindHoughProjection(
     int* pProjR,                // OUT: circular projection - right side nums
     int* pProjL,                // OUT: circular projection - left side nums
     int angBeg,                 // IN: start angle for projection
     int angEnd,                 // IN: end angle for projection
     int* Kernel3x3,             // IN: edge detection kernel
     int thrHoriz,               // IN: horizontal derivative threshold
-    int thrDot,                 // IN: circular shape threshold
+    float thrDot,                 // IN: circular shape threshold
     int minR,
     int maxR,
     unsigned char* im,          // IN: source image
     int xs,                     // IN: image size
     int ys,                     //
     int xc,                     // IN: center x coordinate
-    int yc);                    // IN: center y coordinate
+    int yc,						// IN: center y coordinate
+	int blur_hw);               // blurring half-window size
 
 EXTERN_DLL_EXPORT int DetectBaseRadii(
     SPupilInfo* psPI,         // OUT: pupil data

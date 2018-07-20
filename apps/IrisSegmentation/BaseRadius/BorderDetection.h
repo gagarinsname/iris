@@ -48,6 +48,11 @@
 
 typedef struct
 {
+	int x, y;
+} sPnt;
+
+typedef struct
+{
     int xc;   // X coordinate in fix20 format
     int yc;   // Y coordinate in fix20 format
     int q;    // quality in scale 0-1000
