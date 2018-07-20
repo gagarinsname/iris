@@ -104,18 +104,6 @@ int IrisSegmentation(SSegmentationResult* Result, //Segmentation result
 	int res, Wseg, Hseg, i, rbeg;
 	int xp_mean, yp_mean, pupRadEstimate; //pupil refinement lists of points (x- and y-coordinates)
 	uint8 *imgBl, *tmp;
-	/*
-	if ((res = BDL_Flash_RemoveFlash(imgInput, W, H)) != 0)
-	fprintf(log, "Flash removal error\n");
-	else
-	{
-	cname = (char*)malloc(256 * sizeof(char));
-	strcpy(cname, name);
-	strcat(cname,"_noflash.bmp");
-	CreateBmp8(cname, W, H, imgInput, 4);
-	free(cname);
-	}*/
-
 
 	// pre-processing stage
 	imgBl = (uint8*)malloc(H*W * sizeof(uint8));

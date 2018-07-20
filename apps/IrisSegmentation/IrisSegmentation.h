@@ -66,12 +66,8 @@ typedef struct SEdgeDetectorParams
 
 
 EXTERNC int IS_Initialize(SSegmentationResult *sResult, char* name);
-EXTERNC int IrisSegmentation(SSegmentationResult* Result, //Segmentation result
-	uint8 *imgInput, int H, int W, //image and its dimensions
-	int angle, int flags);//stuff gonna be deleted
+EXTERNC int IrisSegmentation(SSegmentationResult* Result, uint8 *imgInput, int H, int W, int angle, int flags);
 EXTERNC int IS_Deinitialize(SSegmentationResult *sResult);
-
-
 EXTERNC int IS_ApproxBothBorders(SSegmentationResult *Result, uint8 *imgInput, int H, int W, int16 angle, int flags);
 
 //EXTERNC int IBD_RefinePupil(SSegmentationResult *Result, const uint8* img, int H, int W, int flags);
