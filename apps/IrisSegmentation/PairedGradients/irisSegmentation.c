@@ -120,7 +120,7 @@ int IrisSegmentation(SSegmentationResult* Result, //Segmentation result
 	//Apply the gradient pairs method to the image to find the first boundary
 	if ((res = IS_ApproxBothBorders(Result, imgInput, H, W, angle, flags)) != 0)
 	{
-		printf("Error: Gradient pair method fail.\n");
+		fprintf(stderr, "Error: Gradient pair method fail.\n");
 		return -2;
 	}
 
@@ -213,7 +213,7 @@ int pgDetectCenter(SCircleData *CI, SCircleData *CP, int* pnAcc, int H, int W, i
 	int* pnAccBl = (int*)malloc(H*W * sizeof(int));
 
 	// blur accumulator
-	IPL_FILT_HaussBlur3x3_Int(pnAccBl, pnAcc, W, H, 0);
+	IPL_FILT_HaussBlur3x3_Int(pnAccBl, pnAcc, W, H, 1);
 
 	// find maximum
 	vmax = xmax = ymax = 0;
@@ -267,36 +267,38 @@ int pgDetectCenter(SCircleData *CI, SCircleData *CP, int* pnAcc, int H, int W, i
 
 int pgEstimateRadii(SCircleData *CP, SCircleData *CI, SEdgePnt* pnEdgePnts, int nGp, int H, int W, int flags)
 {
-	int dx1, dy1, xt, yt, r, rMax, vrmax, vmax, cGp;
-	double t, dr;
-	double *radHist, *radHistSmooth;
+	int dx1, dy1, gx, gy, r, rMax, vrmax, vmax, cGp;
+	float t, dr;
+	int *radHist, *radHistSmooth;
 
 	rMax = min(min(CP->xc, W - CP->xc), min(CP->yc, H - CP->yc));
-	radHist = (double*)malloc((H + W) * sizeof(double));
-	radHistSmooth = (double*)malloc((H + W) * sizeof(double));
-	for (r = 0; r < H + W; r++) radHist[r] = 0.0;
+	radHist = (int*)malloc((H + W) * sizeof(int));
+	radHistSmooth = (int*)malloc((H + W) * sizeof(int));
+	memset(radHist, 0, (H + W) * sizeof(int));
+	float threshDot = 0.96f * 0.96f;
+	int minRad2 = MINRAD * MINRAD, maxRad2 = rMax*rMax;
 
-	for (cGp = 0; cGp<nGp; cGp++)
+	for (cGp = 0; cGp<nGp; ++cGp)
 	{
-		dx1 = (pnEdgePnts[cGp].x - CI->xc);
-		dy1 = (pnEdgePnts[cGp].y - CI->yc);
-		xt = pnEdgePnts[cGp].gx;
-		yt = pnEdgePnts[cGp].gy;
+		dx1 = pnEdgePnts[cGp].x - CI->xc;
+		dy1 = pnEdgePnts[cGp].y - CI->yc;
+		gx = pnEdgePnts[cGp].gx;
+		gy = pnEdgePnts[cGp].gy;
 
-		//TODO: Insert fast inverse sqrt here
-		t = (dx1*pnEdgePnts[cGp].gx + dy1 * pnEdgePnts[cGp].gy) / sqrt((float)(xt * xt + yt * yt));
-		dr = sqrt(dx1*dx1 + dy1*dy1);
-		t = abs(t) / dr;
-		if (dr >= MINRAD && dr < rMax && t > 0.96)
-			radHist[(int)(dr + .5)]++;
+		int dotProduct = dx1*pnEdgePnts[cGp].gx + dy1 * pnEdgePnts[cGp].gy;
+		/// sqrtf((float)(gx * gx + gy * gy));
+		int dr = dx1*dx1 + dy1*dy1;
+		// t = abs(t) / dr;
+		if (dr >= minRad2 && dr < maxRad2 && dotProduct * dotProduct > threshDot * dr)
+			++radHist[(int)(sqrtf((float)(dr + .5)))];
 	}
 
 	// Histogram normalization
-	for (r = 1; r < rMax; r++) radHist[r] = radHist[r] / r;
+	const int scaleConstant = 4096;
+	for (r = 1; r < rMax; r++) radHist[r] = scaleConstant * radHist[r] / r;
 	//Histogram Haussian filtering (twice for accuracy)
-	IPL_HIST_Blur_double(radHistSmooth, (const double*)radHist, rMax, 5);
-	for (r = 1; r < rMax; r++) radHist[r] = radHistSmooth[r];
-	IPL_HIST_Blur_double(radHistSmooth, (const double*)radHist, rMax, 5);
+	int blur_hw = 5;
+	IPL_HIST_Blur(radHistSmooth, (const int*)radHist, rMax + 1, blur_hw);
 	free(radHist);
 
 	vrmax = 0;
@@ -344,7 +346,6 @@ int pgEstimateRadii(SCircleData *CP, SCircleData *CI, SEdgePnt* pnEdgePnts, int 
 
 int IS_ApproxBothBorders(SSegmentationResult *Result, const uint8 *img, int H, int W, int dPhi, int flags)
 {
-	//return -1;
 	clock_t time;
 	int nGp, dir, cGp, gval, val, x, y, x0, y0, cPt, nBegPairIdx, nEndPairIdx, tint, cPar, D, Dt, rmn, rmx, nC, cC, vtype = 0;
 	int dx, dy, dr1, dr2, r;
@@ -418,7 +419,7 @@ int IS_ApproxBothBorders(SSegmentationResult *Result, const uint8 *img, int H, i
 		yProj[y] /= W;
 
 
-	SaveBmp8(Result->name, "_otsu", W, H, imgOtsu, 4);
+	// SaveBmp8(Result->name, "_otsu", W, H, imgOtsu, 4);
 	free(imgOtsu);
 
 	printf("[PG] t_otsu = %f\n", (double)tOtsu / 255);
@@ -461,7 +462,6 @@ int IS_ApproxBothBorders(SSegmentationResult *Result, const uint8 *img, int H, i
 				pnEdgePnts[nGp].y = (int16)y;
 				pnEdgePnts[nGp].gx = pgx_calc[cPt];
 				pnEdgePnts[nGp].gy = pgy_calc[cPt];
-				// if (dir > -45 && dir < 45 || dir < -135 && dir > -180 || dir > 135 && dir < 180)
 				nGp++;
 			}
 		}
@@ -471,14 +471,11 @@ int IS_ApproxBothBorders(SSegmentationResult *Result, const uint8 *img, int H, i
 	//sorting the gradient points array
 	qsort(pnEdgePnts, nGp, sizeof(pnEdgePnts[0]), sort_edgepnt);
 	//printf("Angle values in [%d,%d]\n", pnEdgePnts[0].dir, pnEdgePnts[nGp-1].dir);
-	
 	//duplicate the array
 	memcpy(pnEdgePnts + nGp, pnEdgePnts, sizeof(pnEdgePnts[0])*nGp);
-
 	//clean the accumulator
 	for (cGp = 0; cGp<nGp; cGp++)
 		pnEdgePnts[cGp + nGp].dir = pnEdgePnts[cGp].dir + 360;
-
 	// clean separated accumulators for center and radius
 	memset(pnAcc, 0, W*H * sizeof(pnAcc[0]));
 
@@ -505,20 +502,21 @@ int IS_ApproxBothBorders(SSegmentationResult *Result, const uint8 *img, int H, i
 				continue;
 
 			Dt = pnEdgePnts[cPar].gx * (pnEdgePnts[cPar].y - pnEdgePnts[cGp].y) - pnEdgePnts[cPar].gy * (pnEdgePnts[cPar].x - pnEdgePnts[cGp].x);
-			t = (float)Dt / D;
-			dx1 = (int)(pnEdgePnts[cGp].gx * t);
-			dy1 = (int)(pnEdgePnts[cGp].gy * t);
+			// t = (float)Dt / D;
+			dx1 = pnEdgePnts[cGp].gx * Dt / D;
+			dy1 = pnEdgePnts[cGp].gy * Dt / D;
+			
 			x = pnEdgePnts[cGp].x + dx1;
 			y = pnEdgePnts[cGp].y + dy1;
 			
-			if (x < 1 || y < 1 || x > W - 10 || y > H - 10)
+			if (x < 1 || y < 1 || x > W - 1 || y > H - 1)
 				continue;
 			
 			dx2 = pnEdgePnts[cPar].x - x;
 			dy2 = pnEdgePnts[cPar].y - y;
 			
-			r1 = sqrt(dx1*dx1 + dy1*dy1);
-			r2 = sqrt(dx2*dx2 + dy2*dy2);
+			r1 = dx1*dx1 + dy1*dy1;
+			r2 = dx2*dx2 + dy2*dy2;
 			
 			if (abs(r1 - r2) >= RADDELT || max(r1, r2) < MINRAD)
 				continue;
@@ -580,83 +578,6 @@ int IS_ApproxBothBorders(SSegmentationResult *Result, const uint8 *img, int H, i
 			return -1;
 		}
 	}
-
-	/*
-	// SECOND BORDER LOCALIZATION
-
-	//clean accumulator
-	memset(pnAcc, 0, W*H * sizeof(pnAcc[0]));
-
-	dr2 = CI.r / 5;
-	dr2 = dr2*dr2;
-	for (cC = 0; cC < nC; cC++)
-	{
-		dx = pnCircleCnd[cC].xc - CI->xc;
-		dy = pnCircleCnd[cC].yc - CI->yc;
-		dr1 = dx*dx + dy*dy;
-		if (dr1 <= dr2 && (pnCircleCnd[cC].r < 3 * CI->r / 4 || pnCircleCnd[cC].r > 4 * CI->r / 3))
-		{
-			pnAccum[pnCircleCnd[cC].yc*W + pnCircleCnd[cC].xc]++;
-			//radHist[pnCircleCnd[cC].r] *= pnCircleCnd[cC].r;
-			//radHistSmooth[pnCircleCnd[cC].r]++;
-			//radHist[pnCircleCnd[cC].r] /= pnCircleCnd[cC].r;
-			//printf("%d \n", pnCircleCnd[cC].r);
-		}
-	}
-	// blur accumulator
-	IPL_FILT_HaussBlur3x3_Int(pnAccBl, pnAcc, W, H, 0);
-	memcpy(pnAccum, pnAccBl, H*W * sizeof(int));
-	IPL_FILT_HaussBlur3x3_Int(pnAccBl, pnAccum, W, H, 0);
-
-	// find maximum
-	vmax = xmax = ymax = 0;
-	for (y = 10; y < H - 10; y++)
-	{
-		for (x = 10; x < W - 10; x++)
-		{
-			if (vmax < pnAccBl[y*W + x])
-				vmax = pnAccBl[(ymax = y)*W + (xmax = x)];
-		}
-	}
-	//set treshold for decentration
-	dr1 = CI->r / 5;
-	dr1 = dr1 * dr1;
-
-	if ((ymax - CI->yc)*(ymax - CI->yc) + (xmax - CI->xc)*(xmax - CI->xc) < dr1)
-	{
-		CP->xc = xmax;
-		CP->yc = ymax;
-	}
-	else
-	{
-		CP->xc = CI->xc;
-		CP->yc = CI->yc;
-	}
-
-	if (flags&BDL_PGRAD_CALCRADIUS)
-	{
-
-		for (dr1 = 0; dr1 <= CI->r / 7; dr1++)
-			radHistSmooth[dr1] = 0.0;
-		for (dr1 = 0; dr1 <= MINRAD; dr1++)
-			radHistSmooth[dr1] = 0.0;
-		for (dr1 = 3 * CI->r / 4; dr1 < 4 * CI->r / 3; dr1++)
-			radHistSmooth[dr1] = 0.0;
-
-		rmx = max(H, W) / 2;
-
-		for (dr1 = 0; dr1 < rmx; dr1++)
-			radHist[dr1] = radHistSmooth[dr1];
-		IPL_HIST_Blur_double(radHistSmooth, (const double*)radHist, rmx, 3);
-		//'Haussian' filtering for radius search
-		vrmax = 0.0;
-		for (x = rmx - 1; x>MINRAD; x--)
-			if (vrmax < radHistSmooth[x])
-				vrmax = radHistSmooth[rmax = x];
-		CP->r = rmax;
-		
-	}
-	*/
 
 	Result->IrisData->sCircle->r = CI.r;
 	Result->IrisData->sCircle->xc = CI.xc;
@@ -780,7 +701,7 @@ int CircBypass(int* radPath, uint8* priceMap)
 		}
 
 		c1 = costMap[(H - 1) * W + n - 1] + (int)priceMap[(H - 1) * W + n - 1];
-		c2 = costMap[(H - 2) * W + n - 1] + (int)priceMap[(H - 2) * W + n - 1] + CDER;//Изменить потом величину штрафа за величину производной
+		c2 = costMap[(H - 2) * W + n - 1] + (int)priceMap[(H - 2) * W + n - 1] + CDER; //Изменить потом величину штрафа за величину производной
 		if (c1 < c2)
 		{
 			if (c1 >= 0)
@@ -849,22 +770,22 @@ int IS_PupilCSP(SSegmentationResult *pResult, uint8 *edgeMap)
 	int rMean = 0;
 	int maxRad = (pResult->IrisData->sCircle->r + pResult->PupilData->sCircle->r) / 2;
 	int minRad = 2 * pResult->PupilData->sCircle->r / 3;
-	double factor = (double)(maxRad - minRad) / NORMALIZED_IRIS_HEIGHT;
+	float factor = (float)(maxRad - minRad) / NORMALIZED_IRIS_HEIGHT;
 
 	pResult->PupilData->sRCircle->xc = 0;
 	pResult->PupilData->sRCircle->yc = 0;
 
 	for (int i = 0; i < CONTOUR_QUANTIZATION; ++i)
 	{
-		double cRad = (double)(radPath[i])*factor + (double)minRad;
+		float cRad = (float)(radPath[i])*factor + (float)minRad;
 		rMean += cRad;
 
 		edgeMap[i + radPath[i] * CONTOUR_QUANTIZATION] = 0;
 
 		pResult->PupilData->sContour[i].x = pResult->PupilData->sCircle->xc + 
-			(int)(cRad * cos((double)i / CONTOUR_QUANTIZATION * 2 * PI));
+			(int)(cRad * cosf((float)i / CONTOUR_QUANTIZATION * 2 * PI));
 		pResult->PupilData->sContour[i].y = pResult->PupilData->sCircle->yc +
-			 (int)(cRad * sin((double)i / CONTOUR_QUANTIZATION * 2 * PI));
+			 (int)(cRad * sinf((float)i / CONTOUR_QUANTIZATION * 2 * PI));
 
 		pResult->PupilData->sRCircle->xc += pResult->PupilData->sContour[i].x;
 		pResult->PupilData->sRCircle->yc += pResult->PupilData->sContour[i].y;
@@ -1012,7 +933,7 @@ int IS_RefinePupil(SSegmentationResult *pResult, const uint8* img, int H, int W,
 
 	if ((res = normalizeEdgeRing(pResult, normEdges, imgEdge, Hc, Wc, cx, cy)) != 0)
 	{
-		printf("[ERROR] Iris edgemap normalization failed.");
+		fprintf(stderr, "[ERROR] Iris edgemap normalization failed.");
 		return -2;
 	}
 
@@ -1021,7 +942,7 @@ int IS_RefinePupil(SSegmentationResult *pResult, const uint8* img, int H, int W,
 
 	if ((res = IS_PupilCSP(pResult, normEdges)) != 0)
 	{
-		printf("Error %d: Circular shortest path obtaining failed: %d.\n", res);
+		fprintf(stderr, "Error %d: Circular shortest path obtaining failed: %d.\n", res);
 		free(normEdges);
 		return -3;
 	}

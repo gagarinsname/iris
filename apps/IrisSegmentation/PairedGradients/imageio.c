@@ -1,3 +1,4 @@
+// #include "GlobalParams.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
