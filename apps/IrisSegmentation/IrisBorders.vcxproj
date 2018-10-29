@@ -89,47 +89,38 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="canny.c" />
-    <ClCompile Include="conobj.c" />
-    <ClCompile Include="filt.c" />
-    <ClCompile Include="geom.cpp" />
-    <ClCompile Include="hist.c" />
-    <ClCompile Include="imageio.c">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="imPlot.cpp" />
-    <ClCompile Include="iplmisc.c" />
-    <ClCompile Include="irisSegmentation.c" />
-    <ClCompile Include="mybdl_refineiris.c">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="mybdl_refinepupil.c">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="mySobelBig.c">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="removal.c" />
-    <ClCompile Include="Experiment.cpp" />
-    <ClCompile Include="TEST_segmentation.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-    </ClCompile>
+    <ClCompile Include="PairedGradients\BaseRadii.cpp" />
+    <ClCompile Include="PairedGradients\canny.c" />
+    <ClCompile Include="PairedGradients\conobj.c" />
+    <ClCompile Include="PairedGradients\Experiment.cpp" />
+    <ClCompile Include="PairedGradients\filt.c" />
+    <ClCompile Include="PairedGradients\hist.c" />
+    <ClCompile Include="PairedGradients\imageio.c" />
+    <ClCompile Include="PairedGradients\ImageProcessing.cpp" />
+    <ClCompile Include="PairedGradients\imPlot.cpp" />
+    <ClCompile Include="PairedGradients\iplmisc.c" />
+    <ClCompile Include="PairedGradients\PairedGradients.c" />
+    <ClCompile Include="PairedGradients\ProjectionProcessing.cpp" />
+    <ClCompile Include="PairedGradients\TEST_segmentation.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="bdl.h" />
-    <ClInclude Include="bpl.h" />
-    <ClInclude Include="dbg.h" />
-    <ClInclude Include="errorcodes.h" />
-    <ClInclude Include="Experiment.h" />
-    <ClInclude Include="ffl.h" />
-    <ClInclude Include="header.h" />
-    <ClInclude Include="Geometry.h" />
-    <ClInclude Include="imPlot.h" />
-    <ClInclude Include="imio.h" />
-    <ClInclude Include="ipl.h" />
-    <ClInclude Include="IrisSegmentation.h" />
-    <ClInclude Include="ownipl.h" />
-    <ClInclude Include="unitypes.h" />
+    <ClInclude Include="PairedGradients\BaseRadii.h" />
+    <ClInclude Include="PairedGradients\bdl.h" />
+    <ClInclude Include="PairedGradients\BorderDetection.h" />
+    <ClInclude Include="PairedGradients\bpl.h" />
+    <ClInclude Include="PairedGradients\dbg.h" />
+    <ClInclude Include="PairedGradients\errorcodes.h" />
+    <ClInclude Include="PairedGradients\Experiment.h" />
+    <ClInclude Include="PairedGradients\ffl.h" />
+    <ClInclude Include="PairedGradients\Geometry.h" />
+    <ClInclude Include="PairedGradients\GlobalParams.h" />
+    <ClInclude Include="PairedGradients\ImageProcessing.h" />
+    <ClInclude Include="PairedGradients\imio.h" />
+    <ClInclude Include="PairedGradients\imPlot.h" />
+    <ClInclude Include="PairedGradients\ipl.h" />
+    <ClInclude Include="PairedGradients\ownipl.h" />
+    <ClInclude Include="PairedGradients\PairedGradients.h" />
+    <ClInclude Include="PairedGradients\unitypes.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

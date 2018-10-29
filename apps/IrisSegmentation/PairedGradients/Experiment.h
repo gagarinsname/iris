@@ -27,5 +27,5 @@ typedef struct SMarkup
 } SMarkup;
 
 
-EXTERNC int getExpertMarkup(FILE* fin, CInfo* pup, CInfo* iri, char* name, char* out);
-EXTERNC int calcError(CErr* err, CInfo* myPup, CInfo* myIri, CInfo* pup, CInfo* iri);
+int getExpertMarkup(FILE* fin, CInfo* pup, CInfo* iri, char* name, char* out);
+int calcError(CErr* err, CInfo* myPup, CInfo* myIri, CInfo* pup, CInfo* iri);

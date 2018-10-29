@@ -5,7 +5,7 @@
 #include <string.h>
 #include <windows.h>
 #include <conio.h>
-#include "header.h"
+#include "GlobalParams.h"
 #include "imio.h"
 #include "stddefs.h"
 
@@ -192,39 +192,4 @@ int SaveBmp8 (char *fname, char* label, int Width, int Height, unsigned char* ma
 	free(cname);
 	free(ext);
 	return res;
-}
-
-
-
-void Dilate3x3Cross(unsigned char* dst, const unsigned char* src, int W, int H)
-{
-  int i,j,m,q;
-
-  // upper boundary
-  memset(dst,0,W);
-  // body
-  for (i=1;i<H-1;++i)
-  {
-    // left
-    dst[i*W] = 0;
-    // body
-    for (j=1;j<W-1;++j)
-    {
-      m =  src[(i-1)*W+(j  )];
-
-      if (m<(q = src[(i  )*W+(j-1)]))
-        m = q;
-      if (m<(q = src[(i  )*W+(j  )]))
-        m = q;
-      if (m<(q = src[(i  )*W+(j+1)]))
-        m = q;
-      if (m<(q = src[(i+1)*W+(j  )]))
-        m = q;
-      dst[i*W+j] = (unsigned char)m;
-    }
-    // right
-    dst[i*W+W-1] = 0;
-  }
-  // lower boundary
-  memset(dst+(H-1)*W,0,W);
 }

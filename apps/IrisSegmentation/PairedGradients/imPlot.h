@@ -9,7 +9,7 @@
 /*                                                                       */
 /*-----------------------------------------------------------------------*/
 #include "unitypes.h"
-#include "Geometry.h"
+#include "BorderDetection.h"
 #include "stddefs.h"
 
 // draw the line of the given color in grayscale image
@@ -34,6 +34,6 @@ void DRAW_2DSequenceInGray(
 	uint8* im,		// image
 	int W,			//image size
 	int H,			//image size
-	sPoint* sSeq,	//sequence points
+	sPnt* sSeq,	//sequence points
 	int N,			//Number of elements in the sequence
 	uint8 color);	//color

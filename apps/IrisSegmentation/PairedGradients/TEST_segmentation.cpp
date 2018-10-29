@@ -11,7 +11,7 @@
 #include "unitypes.h"
 #include "imio.h"
 #include "imPlot.h"
-#include "IrisSegmentation.h"
+#include "PairedGradients.h"
 #include "bdl.h"
 
 #define INPUT_FOLDER "D:/data/casia2/"

@@ -17,7 +17,7 @@
 #include <iostream>
 
 #include "GlobalParams.h"
-#include "BaseRadii.h"
+// #include "BaseRadii.h"
 #include "ImageProcessing.h"
 #include "BorderDetection.h"
 
@@ -164,7 +164,7 @@ RESULT_CODE FindHoughProjection(
         minY = yc - 1;
     else
     {
-		float xIntercept = -(float)yc / (kBeg + 1e-7) + xc;
+		float xIntercept = -(float)yc / (kBeg + 1e-7f) + xc;
         minY = (int)(((xIntercept >= 0) ? .0 : -kBeg * xIntercept + .5f));
     }
 
@@ -172,7 +172,7 @@ RESULT_CODE FindHoughProjection(
         maxY = yc + 1;
     else
     {
-        float xIntercept = (float)(ys - yc) / (kEnd + 1e-7) + xc;
+        float xIntercept = (float)(ys - yc) / (kEnd + 1e-7f) + xc;
         maxY = (int)(((xIntercept >= 0) ? (float)ys : (float)ys - kEnd * xIntercept + .5f));
     }
     // sanity check
@@ -861,7 +861,6 @@ int ownIVIR_sortSBRH(
 }
 
 // detect approximate pupil and iris by projection method
-#define __FILENUM__ 9 // __FILENUM__TAG9
 #define BLUR_HIST_WND 4
 
 
