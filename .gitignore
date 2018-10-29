@@ -39,3 +39,12 @@ Thumbs.db
 # PyCharm files #
 #################
 .idea/*
+
+# VS Generated Files #
+######################
+*.VC.db
+*.VC.opendb
+
+Debug/*
+Release/*
+*.obj
