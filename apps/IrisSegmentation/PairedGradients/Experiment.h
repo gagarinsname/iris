@@ -1,14 +1,11 @@
+#ifndef __EXPERIMENT_H__
+#define __EXPERIMENT_H__
+
 #include <math.h>
 #include <stdio.h>
 #include "stddefs.h"
 #include "Geometry.h"
 
-/*
-typedef struct CErr
-{
-	double sum, ctr, pup, iri;
-} CErr;
-*/
 
 typedef struct SError
 {
@@ -29,3 +26,5 @@ typedef struct SMarkup
 
 int getExpertMarkup(FILE* fin, CInfo* pup, CInfo* iri, char* name, char* out);
 int calcError(CErr* err, CInfo* myPup, CInfo* myIri, CInfo* pup, CInfo* iri);
+
+#endif // __EXPERIMENT_H__
